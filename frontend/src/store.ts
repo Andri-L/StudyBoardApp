@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { api, friendlyError } from './api';
-import type { AppState, Job, ModelDownload, View, Viewport } from './types';
+import type { AppState, Job, ModelDownload, View, Viewport, WorkflowInfo, WorkflowJob, WorkflowVideo } from './types';
 
 type ToastKind = 'info' | 'success' | 'error';
 
@@ -23,6 +23,12 @@ interface StudyBoardStore {
   toast: Toast | null;
   mediaVersion: number;
   modelDownloads: Record<string, ModelDownload>;
+  workflows: WorkflowInfo[];
+  workflowVideos: WorkflowVideo[];
+  workflowJobs: WorkflowJob[];
+  workflowDialogOpen: boolean;
+  workflowPreselect: string[];
+  workflowPanelOpen: boolean;
 
   init: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -59,6 +65,15 @@ interface StudyBoardStore {
   downloadModel: (file: string) => Promise<void>;
   cancelModelDownload: (file: string) => Promise<void>;
   openModelsFolder: () => Promise<void>;
+  openWorkflowDialog: (preselect?: string[]) => Promise<void>;
+  closeWorkflowDialog: () => void;
+  refreshWorkflowData: () => Promise<void>;
+  startWorkflows: (workflowIds: string[], videoPaths: string[], language: 'es' | 'en') => Promise<void>;
+  workflowJobUpdated: (job: WorkflowJob) => void;
+  cancelWorkflow: (id: string) => Promise<void>;
+  moveWorkflowResult: (resultId: string, x: number, y: number) => void;
+  removeWorkflowResult: (resultId: string) => Promise<void>;
+  setWorkflowPanelOpen: (open: boolean) => void;
   showToast: (message: string, kind?: ToastKind) => void;
   dismissToast: () => void;
 }
@@ -82,6 +97,12 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
   toast: null,
   mediaVersion: 0,
   modelDownloads: {},
+  workflows: [],
+  workflowVideos: [],
+  workflowJobs: [],
+  workflowDialogOpen: false,
+  workflowPreselect: [],
+  workflowPanelOpen: false,
 
   init: async () => {
     set({ loading: true });
@@ -391,6 +412,107 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
       get().showToast(friendlyError(err), 'error');
     }
   },
+
+  openWorkflowDialog: async (preselect = []) => {
+    set({ workflowDialogOpen: true, workflowPreselect: preselect });
+    try {
+      const [workflows, workflowVideos, workflowJobs] = await Promise.all([
+        api.getWorkflows(),
+        api.getWorkflowVideos(),
+        api.getWorkflowJobs(),
+      ]);
+      set({ workflows, workflowVideos, workflowJobs });
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  closeWorkflowDialog: () => set({ workflowDialogOpen: false, workflowPreselect: [] }),
+
+  refreshWorkflowData: async () => {
+    try {
+      const [workflows, workflowVideos, workflowJobs] = await Promise.all([
+        api.getWorkflows(),
+        api.getWorkflowVideos(),
+        api.getWorkflowJobs(),
+      ]);
+      set({ workflows, workflowVideos, workflowJobs });
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  startWorkflows: async (workflowIds, videoPaths, language) => {
+    const boardId = activeBoardId(get().state);
+    if (!boardId || workflowIds.length === 0 || videoPaths.length === 0) return;
+    set({ workflowDialogOpen: false, workflowPreselect: [] });
+    let started = 0;
+    for (const workflowId of workflowIds) {
+      for (const videoPath of videoPaths) {
+        try {
+          const job = await api.startWorkflow(boardId, workflowId, videoPath, language);
+          started++;
+          set((s) => ({
+            workflowJobs: [job, ...s.workflowJobs.filter((j) => j.id !== job.id)],
+          }));
+        } catch (err) {
+          get().showToast(friendlyError(err), 'error');
+        }
+      }
+    }
+    if (started > 0) {
+      set({ workflowPanelOpen: true });
+      get().showToast(
+        started === 1 ? 'Workflow añadido a la cola' : `${started} workflows añadidos a la cola`,
+        'info',
+      );
+    }
+  },
+
+  workflowJobUpdated: (job) => {
+    const previous = get().workflowJobs.find((j) => j.id === job.id);
+    set((s) => ({
+      workflowJobs: [job, ...s.workflowJobs.filter((j) => j.id !== job.id)],
+    }));
+    if (job.status === 'done' && previous?.status !== 'done') {
+      get().showToast(`${job.workflowName}: informe listo`, 'success');
+    }
+    if (job.status === 'error' && previous?.status !== 'error') {
+      get().showToast(job.error || 'El workflow falló', 'error');
+    }
+  },
+
+  cancelWorkflow: async (id) => {
+    try {
+      await api.cancelWorkflow(id);
+      set((s) => ({
+        workflowJobs: s.workflowJobs.map((job) =>
+          job.id === id ? { ...job, status: 'canceled', stage: 'Cancelado' } : job,
+        ),
+      }));
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  moveWorkflowResult: (resultId, x, y) => {
+    const boardId = activeBoardId(get().state);
+    if (!boardId) return;
+    void api.moveWorkflowResult(boardId, resultId, x, y).catch(() => undefined);
+  },
+
+  removeWorkflowResult: async (resultId) => {
+    const boardId = activeBoardId(get().state);
+    if (!boardId) return;
+    try {
+      const state = await api.removeWorkflowResult(boardId, resultId);
+      set({ state });
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  setWorkflowPanelOpen: (open) => set({ workflowPanelOpen: open }),
 
   showToast: (message, kind = 'info') => {
     if (toastTimer) window.clearTimeout(toastTimer);

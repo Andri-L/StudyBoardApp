@@ -21,17 +21,18 @@ import {
   MoveUpRight,
   Plus,
   StickyNote,
+  Workflow,
   X,
 } from 'lucide-react';
 import { boardById, useStudyBoard } from '../store';
-import type { Card, Note } from '../types';
+import type { Card, Note, WorkflowResult } from '../types';
 import { compactPath } from '../api';
 import { nodeTypes } from './nodes';
 import ArrowLayer from './ArrowLayer';
 import FolderDialog from './FolderDialog';
 import QuickSettings from './QuickSettings';
 
-type BoardNode = Node<{ card?: Card; note?: Note }, 'folder' | 'video' | 'note'>;
+type BoardNode = Node<{ card?: Card; note?: Note; result?: WorkflowResult }, 'folder' | 'video' | 'note' | 'result'>;
 
 function cardToNode(card: Card): BoardNode {
   return {
@@ -54,6 +55,18 @@ function noteToNode(note: Note): BoardNode {
     height: note.height,
     data: { note },
     style: { width: note.width, height: note.height },
+  };
+}
+
+function resultToNode(result: WorkflowResult): BoardNode {
+  return {
+    id: result.id,
+    type: 'result',
+    position: { x: result.x, y: result.y },
+    width: result.width,
+    height: result.height,
+    data: { result },
+    style: { width: result.width, height: result.height },
   };
 }
 
@@ -91,6 +104,9 @@ function BoardInner() {
   const removeNote = useStudyBoard((s) => s.removeNote);
   const addArrow = useStudyBoard((s) => s.addArrow);
   const removeArrow = useStudyBoard((s) => s.removeArrow);
+  const openWorkflowDialog = useStudyBoard((s) => s.openWorkflowDialog);
+  const moveWorkflowResult = useStudyBoard((s) => s.moveWorkflowResult);
+  const removeWorkflowResult = useStudyBoard((s) => s.removeWorkflowResult);
   const board = boardById(state);
   const { screenToFlowPosition, fitView } = useReactFlow();
 
@@ -106,6 +122,7 @@ function BoardInner() {
         ? [
             ...(board.cards ?? []).map((card) => card.id),
             ...(board.notes ?? []).map((note) => note.id),
+            ...(board.results ?? []).map((result) => result.id),
           ].join('|')
         : '',
     [board],
@@ -120,6 +137,7 @@ function BoardInner() {
     setNodes([
       ...(board.cards ?? []).map(cardToNode),
       ...(board.notes ?? []).map(noteToNode),
+      ...(board.results ?? []).map(resultToNode),
     ]);
     // The signature only changes when cards or notes are added/removed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -191,6 +209,7 @@ function BoardInner() {
     selectedCard?.kind === 'folder' ? selectedCard.path : state?.workspace || '';
   const noteCount = board.notes?.length ?? 0;
   const arrowCount = board.arrows?.length ?? 0;
+  const resultCount = board.results?.length ?? 0;
 
   const handlePaneClick = (event: React.MouseEvent) => {
     setMenu(null);
@@ -234,12 +253,17 @@ function BoardInner() {
               {board.cards.length} {board.cards.length === 1 ? 'tarjeta' : 'tarjetas'}
               {noteCount > 0 ? ` · ${noteCount} ${noteCount === 1 ? 'nota' : 'notas'}` : ''}
               {arrowCount > 0 ? ` · ${arrowCount} ${arrowCount === 1 ? 'flecha' : 'flechas'}` : ''}
+              {resultCount > 0 ? ` · ${resultCount} ${resultCount === 1 ? 'informe' : 'informes'}` : ''}
               {workspaceName ? ` · ${workspaceName}` : ''}
             </span>
           </div>
         </div>
         <div className="toolbar-actions">
           <QuickSettings />
+          <button className="btn btn-ghost" onClick={() => void openWorkflowDialog()}>
+            <Workflow size={15} />
+            Ejecutar workflow
+          </button>
           <button className="btn btn-ghost" onClick={() => openFolder(state?.workspace || '')}>
             <FolderOpen size={15} />
             Añadir carpeta
@@ -270,6 +294,9 @@ function BoardInner() {
             if (node.type === 'note') {
               const noteId = node.data?.note?.id ?? node.id;
               moveNote(noteId, node.position.x, node.position.y);
+            } else if (node.type === 'result') {
+              const resultId = node.data?.result?.id ?? node.id;
+              moveWorkflowResult(resultId, node.position.x, node.position.y);
             } else {
               moveCard(board.id, node.id, node.position.x, node.position.y);
             }
@@ -279,6 +306,9 @@ function BoardInner() {
               if (node.type === 'note') {
                 const noteId = node.data?.note?.id ?? node.id;
                 void removeNote(noteId);
+              } else if (node.type === 'result') {
+                const resultId = node.data?.result?.id ?? node.id;
+                void removeWorkflowResult(resultId);
               } else {
                 void removeCard(node.id);
               }
@@ -286,7 +316,7 @@ function BoardInner() {
           }
           onNodeClick={(_, node) => {
             setSelectedArrowId(null);
-            if (node.type === 'note') {
+            if (node.type === 'note' || node.type === 'result') {
               selectCard(null);
             } else {
               selectCard(node.id);
@@ -344,7 +374,7 @@ function BoardInner() {
           </div>
         )}
 
-        {board.cards.length === 0 && noteCount === 0 && (
+        {board.cards.length === 0 && noteCount === 0 && resultCount === 0 && (
           <div className="empty-board-overlay">
             <div className="empty-board-card">
               <div className="empty-board-icon"><MousePointer2 size={22} /></div>

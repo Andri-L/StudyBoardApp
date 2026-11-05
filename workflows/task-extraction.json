@@ -1,0 +1,9 @@
+{
+  "id": "task-extraction",
+  "name": "Extracción de tareas",
+  "shortName": "Tareas",
+  "description": "Detecta actividades asignadas, requisitos, preferencias del profesor, plazos y canal de entrega.",
+  "icon": "clipboard-list",
+  "promptFile": "prompts/task-extraction.md",
+  "outputFile": "tareas"
+}

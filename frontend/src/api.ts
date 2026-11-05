@@ -8,6 +8,9 @@ import type {
   ModelDownload,
   Transcript,
   Viewport,
+  WorkflowInfo,
+  WorkflowJob,
+  WorkflowVideo,
 } from './types';
 
 declare global {
@@ -54,6 +57,16 @@ export const api = {
     invoke<AppState>('AddArrow', boardId, x1, y1, x2, y2),
   removeArrow: (boardId: string, arrowId: string) =>
     invoke<AppState>('RemoveArrow', boardId, arrowId),
+  getWorkflows: () => invoke<WorkflowInfo[]>('GetWorkflows'),
+  getWorkflowVideos: () => invoke<WorkflowVideo[]>('GetWorkflowVideos'),
+  startWorkflow: (boardId: string, workflowId: string, videoPath: string, language: 'es' | 'en') =>
+    invoke<WorkflowJob>('StartWorkflow', boardId, workflowId, videoPath, language),
+  getWorkflowJobs: () => invoke<WorkflowJob[]>('GetWorkflowJobs'),
+  cancelWorkflow: (id: string) => invoke<void>('CancelWorkflow', id),
+  moveWorkflowResult: (boardId: string, resultId: string, x: number, y: number) =>
+    invoke<void>('MoveWorkflowResult', boardId, resultId, x, y),
+  removeWorkflowResult: (boardId: string, resultId: string) =>
+    invoke<AppState>('RemoveWorkflowResult', boardId, resultId),
   moveCard: (boardId: string, cardId: string, x: number, y: number) =>
     invoke<void>('MoveCard', boardId, cardId, x, y),
   removeCard: (boardId: string, cardId: string) =>

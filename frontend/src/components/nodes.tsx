@@ -23,6 +23,7 @@ import {
   parentName,
   thumbUrl,
 } from '../api';
+import WorkflowResultNode from './WorkflowResultNode';
 
 type CardNode = Node<{ card: Card }, 'folder' | 'video'>;
 type NoteNodeType = Node<{ note: Note }, 'note'>;
@@ -341,4 +342,5 @@ export const nodeTypes = {
   folder: FolderNode,
   video: VideoNode,
   note: NoteNode,
+  result: WorkflowResultNode,
 };

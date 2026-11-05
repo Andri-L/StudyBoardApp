@@ -38,12 +38,65 @@ export interface Arrow {
   createdAt: number;
 }
 
+export interface WorkflowInfo {
+  id: string;
+  name: string;
+  shortName: string;
+  description: string;
+  icon: string;
+  outputFile: string;
+}
+
+export interface WorkflowVideo {
+  path: string;
+  name: string;
+  class: string;
+  duration: number;
+  hasTranscript: boolean;
+  segments: number;
+}
+
+export interface WorkflowJob {
+  id: string;
+  boardId: string;
+  workflowId: string;
+  workflowName: string;
+  videoPath: string;
+  videoName: string;
+  outputLanguage: string;
+  status: 'queued' | 'running' | 'done' | 'error' | 'canceled';
+  stage: string;
+  error: string;
+  sessionId: string;
+  createdAt: number;
+  startedAt: number;
+  finishedAt: number;
+}
+
+export interface WorkflowResult {
+  id: string;
+  workflowId: string;
+  workflowName: string;
+  videoPath: string;
+  videoName: string;
+  className: string;
+  content: string;
+  filePath: string;
+  sessionId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  createdAt: number;
+}
+
 export interface Board {
   id: string;
   name: string;
   cards: Card[];
   notes: Note[];
   arrows: Arrow[];
+  results: WorkflowResult[];
   viewport: Viewport;
 }
 

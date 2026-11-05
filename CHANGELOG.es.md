@@ -2,6 +2,47 @@
 
 [English](CHANGELOG.md) · [Español](CHANGELOG.es.md)
 
+## v1.1.0 — 2026-11-05
+
+Workflows automáticos de OpenCode en el workspace.
+
+### Añadido
+
+- Acción **Ejecutar workflow** en la barra del tablero.
+- Selector para ejecutar uno o varios workflows sobre una o varias clases a la
+  vez, con salida en español o inglés.
+- Workflow **Extracción de tareas**: actividades explícitas y probables,
+  requisitos y preferencias del profesor, plazos, canal de entrega, modo
+  individual/grupal, pistas de rúbrica, evidencia con timestamps y ambigüedades.
+- Workflow **Puntos para parciales**: información explícita del parcial separada
+  del énfasis del profesor, temas excluidos, formatos de pregunta, plan de
+  estudio priorizado, preguntas de práctica y advertencias. Nunca inventa datos
+  del parcial.
+- Resultados como tarjetas tipo nota adhesiva junto al video de origen.
+- Cada resultado se guarda además como Markdown junto al video
+  (`<video> - tareas.md`, `<video> - parcial.md`).
+- Panel de ejecuciones con etapa en vivo, cancelación y detalle de errores.
+- Botón **Workflows** por video en el visor de transcripción.
+- Herramientas MCP `list_workflow_results` y `get_workflow_result`.
+- Recurso MCP `studyboard://workflow-results`.
+- Prompts MCP `extraer-tareas` y `puntos-parciales`.
+- Workflows declarativos en JSON con plantillas de prompt en inglés.
+
+### Cambiado
+
+- `overview` ahora informa resultados de workflows, notas y flechas por tablero.
+
+### Notas
+
+- Los workflows usan el CLI de OpenCode ya instalado y autenticado en la máquina.
+  Cada ejecución crea una sesión nueva; StudyBoard no almacena credenciales del
+  proveedor.
+- Los prompts están en inglés para mayor fiabilidad del modelo. El idioma del
+  informe lo elige el usuario.
+- La transcripción se lee a través del servidor MCP de StudyBoard. Al ejecutar un
+  workflow, el contenido consultado por el modelo se envía al proveedor
+  configurado en OpenCode, igual que en cualquier sesión de OpenCode.
+
 ## v1.0.0 — 2026-11-05
 
 Primera versión pública de StudyBoard App.

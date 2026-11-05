@@ -1,4 +1,4 @@
-import { Cpu, ListVideo, Loader2 } from 'lucide-react';
+import { Cpu, ListVideo, Loader2, Workflow } from 'lucide-react';
 import { useStudyBoard } from '../store';
 import { compactPath } from '../api';
 
@@ -7,11 +7,18 @@ export default function StatusBar() {
   const jobs = useStudyBoard((s) => s.jobs);
   const jobsOpen = useStudyBoard((s) => s.jobsOpen);
   const setJobsOpen = useStudyBoard((s) => s.setJobsOpen);
+  const workflowJobs = useStudyBoard((s) => s.workflowJobs);
+  const workflowPanelOpen = useStudyBoard((s) => s.workflowPanelOpen);
+  const setWorkflowPanelOpen = useStudyBoard((s) => s.setWorkflowPanelOpen);
 
   const activeJobs = jobs.filter((j) =>
     ['queued', 'extracting', 'transcribing', 'saving'].includes(j.status),
   );
   const running = activeJobs[0];
+  const activeWorkflows = workflowJobs.filter((j) =>
+    ['queued', 'running'].includes(j.status),
+  );
+  const runningWorkflow = activeWorkflows[0];
   const ready = state?.engine.ready;
 
   return (
@@ -30,6 +37,25 @@ export default function StatusBar() {
         </span>
       </div>
       <div className="status-right">
+        {workflowJobs.length > 0 && (
+          <button
+            className={`status-jobs ${workflowPanelOpen ? 'open' : ''}`}
+            onClick={() => setWorkflowPanelOpen(!workflowPanelOpen)}
+            title="Ver workflows de OpenCode"
+          >
+            {runningWorkflow ? (
+              <>
+                <Loader2 size={12} className="spin" />
+                <span>{runningWorkflow.stage}</span>
+              </>
+            ) : (
+              <>
+                <Workflow size={12} />
+                <span>{workflowJobs.length === 1 ? '1 workflow' : `${workflowJobs.length} workflows`}</span>
+              </>
+            )}
+          </button>
+        )}
         <button
           className={`status-jobs ${jobsOpen ? 'open' : ''}`}
           onClick={() => setJobsOpen(!jobsOpen)}
@@ -48,7 +74,7 @@ export default function StatusBar() {
             </>
           )}
         </button>
-        <span className="status-version">StudyBoard App 1.0.0</span>
+        <span className="status-version">StudyBoard App 1.1.0</span>
       </div>
     </footer>
   );

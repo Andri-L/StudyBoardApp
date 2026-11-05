@@ -124,6 +124,25 @@ func mcpToolDefinitions() []map[string]any {
 				"seconds": number("Segundo exacto del video (acepta decimales)."),
 			}, "path", "seconds"),
 		},
+		{
+			"name":        "list_workflow_results",
+			"title":       "Listar resultados de workflows",
+			"description": "Lista los informes de workflows ya ejecutados (tareas, parciales u otros), con clase, video y archivo Markdown. Acepta un filtro opcional.",
+			"inputSchema": object(map[string]any{
+				"query": text("Filtro opcional por clase, video, workflow o contenido."),
+				"limit": integer("Máximo de resultados a devolver.", 1, 100, 30),
+			}),
+		},
+		{
+			"name":        "get_workflow_result",
+			"title":       "Leer un resultado de workflow",
+			"description": "Devuelve el informe completo de un workflow por id, o por video y workflow. Úsala para reutilizar tareas o puntos de parcial ya extraídos.",
+			"inputSchema": object(map[string]any{
+				"id":       text("Id del resultado (opcional si usas video)."),
+				"video":    text("Ruta o nombre del video (opcional si usas id)."),
+				"workflow": text("Id o nombre del workflow, por ejemplo task-extraction o exam-focus."),
+			}),
+		},
 	}
 }
 
@@ -160,6 +179,18 @@ func (s *mcpServer) callTool(name string, args map[string]any) map[string]any {
 			return toolErrorResult("Falta el argumento 'path'.")
 		}
 		text, err := s.app.mcpTranscriptText(path, argFloat(args, "start_seconds", 0), argFloat(args, "end_seconds", 0), argInt(args, "max_chars", 24000))
+		if err != nil {
+			return toolErrorResult(err.Error())
+		}
+		return textToolResult(text)
+
+	case "list_workflow_results":
+		return textToolResult(prettyJSON(map[string]any{
+			"results": s.app.mcpWorkflowResults(argString(args, "query"), argInt(args, "limit", 30)),
+		}))
+
+	case "get_workflow_result":
+		text, err := s.app.mcpWorkflowResult(argString(args, "id"), argString(args, "video"), argString(args, "workflow"))
 		if err != nil {
 			return toolErrorResult(err.Error())
 		}
@@ -272,9 +303,16 @@ func (a *App) mcpOverview() map[string]any {
 			})
 		}
 		boards = append(boards, map[string]any{
-			"name":  board.Name,
-			"cards": cards,
+			"name":    board.Name,
+			"cards":   cards,
+			"notes":   len(board.Notes),
+			"arrows":  len(board.Arrows),
+			"results": len(board.Results),
 		})
+	}
+	workflowResults := 0
+	for _, board := range a.state.Boards {
+		workflowResults += len(board.Results)
 	}
 	return map[string]any{
 		"app":       "StudyBoard App",
@@ -288,6 +326,7 @@ func (a *App) mcpOverview() map[string]any {
 		},
 		"videos":             len(videos),
 		"transcripts":        len(transcripts),
+		"workflowResults":    workflowResults,
 		"transcribedSeconds": totalSeconds,
 	}
 }
@@ -620,6 +659,12 @@ func mcpResourceDefinitions() []map[string]any {
 			"description": "Índice de transcripciones con clase, duración y cantidad de segmentos.",
 			"mimeType":    "application/json",
 		},
+		{
+			"uri":         "studyboard://workflow-results",
+			"name":        "Resultados de workflows",
+			"description": "Informes de tareas, parciales y otros workflows ejecutados.",
+			"mimeType":    "application/json",
+		},
 	}
 }
 
@@ -647,6 +692,9 @@ func (s *mcpServer) readResource(uri string) (map[string]any, error) {
 			})
 		}
 		payload = map[string]any{"count": len(summaries), "transcripts": summaries}
+	case "studyboard://workflow-results":
+		results := s.app.mcpWorkflowResults("", 100)
+		payload = map[string]any{"count": len(results), "results": results}
 	default:
 		return nil, fmt.Errorf("recurso desconocido: %s", uri)
 	}
@@ -657,8 +705,19 @@ func (s *mcpServer) readResource(uri string) (map[string]any, error) {
 	}, nil
 }
 
+func mcpWorkflowPromptName(id string) string {
+	switch id {
+	case "task-extraction":
+		return "extraer-tareas"
+	case "exam-focus":
+		return "puntos-parciales"
+	default:
+		return id
+	}
+}
+
 func mcpPromptDefinitions() []map[string]any {
-	return []map[string]any{
+	prompts := []map[string]any{
 		{
 			"name":        "resumir-clase",
 			"title":       "Resumir una clase",
@@ -676,6 +735,21 @@ func mcpPromptDefinitions() []map[string]any {
 			},
 		},
 	}
+	defs, err := loadWorkflowDefinitions()
+	if err == nil {
+		for _, def := range defs {
+			prompts = append(prompts, map[string]any{
+				"name":        mcpWorkflowPromptName(def.ID),
+				"title":       def.Name,
+				"description": def.Description,
+				"arguments": []map[string]any{
+					{"name": "clase", "description": "Nombre, carpeta o fragmento de la clase.", "required": true},
+					{"name": "idioma", "description": "Idioma de salida (Spanish o English).", "required": false},
+				},
+			})
+		}
+	}
+	return prompts
 }
 
 func (s *mcpServer) getPrompt(name string, args map[string]string) (map[string]any, error) {
@@ -694,7 +768,32 @@ func (s *mcpServer) getPrompt(name string, args map[string]string) (map[string]a
 			"Agrupa las coincidencias por clase, cita [hh:mm:ss] y explica brevemente el contexto. "+
 			"Si el usuario necesita ver lo que se mostraba, usa capture_frame en el segundo indicado.", consulta)
 	default:
-		return nil, fmt.Errorf("prompt desconocido: %s", name)
+		defs, err := loadWorkflowDefinitions()
+		if err != nil {
+			return nil, fmt.Errorf("prompt desconocido: %s", name)
+		}
+		found := false
+		for _, def := range defs {
+			if mcpWorkflowPromptName(def.ID) != name {
+				continue
+			}
+			found = true
+			clase := args["clase"]
+			idioma := strings.TrimSpace(args["idioma"])
+			text = fmt.Sprintf("The user wants to run the StudyBoard workflow %q for the class %q.\n", def.Name, clase)
+			if idioma != "" {
+				text += "Write the final report in " + idioma + ".\n"
+			} else {
+				text += "Write the final report in the language used by the user (default Spanish).\n"
+			}
+			text += "Use the StudyBoard MCP tools to find the exact transcribed video, read the full transcript, " +
+				"and inspect frames when needed. Do not ask follow-up questions.\n\n" +
+				renderMCPWorkflowPrompt(def, clase)
+			break
+		}
+		if !found {
+			return nil, fmt.Errorf("prompt desconocido: %s", name)
+		}
 	}
 	return map[string]any{
 		"description": "Prompt de StudyBoard App",

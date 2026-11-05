@@ -1,0 +1,9 @@
+{
+  "id": "exam-focus",
+  "name": "Puntos para parciales",
+  "shortName": "Parciales",
+  "description": "Separa lo que entra al parcial de las inferencias y construye un plan de estudio priorizado.",
+  "icon": "target",
+  "promptFile": "prompts/exam-focus.md",
+  "outputFile": "parcial"
+}

@@ -41,12 +41,21 @@ type App struct {
 	downloadMu      sync.Mutex
 	downloads       map[string]*ModelDownload
 	downloadCancels map[string]context.CancelFunc
+
+	workflowMu      sync.Mutex
+	workflowJobs    map[string]*WorkflowJob
+	workflowOrder   []string
+	workflowQueue   chan *WorkflowJob
+	workflowCancels map[string]context.CancelFunc
 }
 
 func NewApp() *App {
 	return &App{
 		downloads:       map[string]*ModelDownload{},
 		downloadCancels: map[string]context.CancelFunc{},
+		workflowJobs:    map[string]*WorkflowJob{},
+		workflowQueue:   make(chan *WorkflowJob, 32),
+		workflowCancels: map[string]context.CancelFunc{},
 	}
 }
 
@@ -75,6 +84,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 	wailsRuntime.WindowSetAlwaysOnTop(ctx, false)
 	a.startWorker()
+	a.startWorkflowWorker()
 }
 
 func (a *App) initPaths() {
@@ -123,6 +133,11 @@ func (a *App) shutdown(ctx context.Context) {
 		cancel()
 	}
 	a.downloadMu.Unlock()
+	a.workflowMu.Lock()
+	for _, cancel := range a.workflowCancels {
+		cancel()
+	}
+	a.workflowMu.Unlock()
 	if a.media != nil {
 		a.media.stop()
 	}

@@ -40,6 +40,7 @@ func newBoard(name string) Board {
 		Cards:    []Card{},
 		Notes:    []Note{},
 		Arrows:   []Arrow{},
+		Results:  []WorkflowResult{},
 		Viewport: Viewport{Zoom: 1},
 	}
 }
@@ -153,6 +154,7 @@ func (a *App) snapshotLocked() AppState {
 		state.Boards[i].Cards = append([]Card(nil), b.Cards...)
 		state.Boards[i].Notes = append([]Note(nil), b.Notes...)
 		state.Boards[i].Arrows = append([]Arrow(nil), b.Arrows...)
+		state.Boards[i].Results = append([]WorkflowResult(nil), b.Results...)
 	}
 	return state
 }

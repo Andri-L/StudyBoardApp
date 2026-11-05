@@ -13,6 +13,7 @@ import {
   Play,
   Search,
   Sparkles,
+  Workflow,
   X,
 } from 'lucide-react';
 import { activeJobForPath, boardById, useStudyBoard } from '../store';
@@ -37,6 +38,7 @@ export default function ReviewView({ path }: Props) {
   const mediaVersion = useStudyBoard((s) => s.mediaVersion);
   const closeReview = useStudyBoard((s) => s.closeReview);
   const startTranscription = useStudyBoard((s) => s.startTranscription);
+  const openWorkflowDialog = useStudyBoard((s) => s.openWorkflowDialog);
   const showToast = useStudyBoard((s) => s.showToast);
   const board = boardById(state);
 
@@ -177,6 +179,10 @@ export default function ReviewView({ path }: Props) {
                 {status === 'done' ? <Check size={12} /> : <Loader2 size={12} />}
                 {status === 'done' ? 'Transcrito' : status === 'error' ? 'Error' : 'Procesando'}
               </span>
+              <button className="btn btn-ghost btn-sm" onClick={() => void openWorkflowDialog([path])}>
+                <Workflow size={14} />
+                Workflows
+              </button>
               <button className="btn btn-ghost btn-sm" onClick={() => void exportFile('md')}>
                 <FileText size={14} />
                 Markdown

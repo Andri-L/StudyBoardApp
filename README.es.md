@@ -25,6 +25,10 @@ referencias a rutas reales.
 - Exportación a Markdown con timestamps y SRT.
 - Descarga y selección de modelos desde la interfaz, sin salir de la app.
 - Selector de idioma: Español, English o detección automática.
+- **Workflows automáticos de OpenCode** para extraer tareas y preparar parciales.
+- Los informes aparecen como notas adhesivas junto al video y se guardan como
+  Markdown junto a la grabación.
+- Selector para ejecutar varios workflows sobre varias clases a la vez.
 - Servidor MCP para consultar las clases desde OpenCode sin abrir la app.
 - La ventana no se queda siempre encima.
 
@@ -48,6 +52,13 @@ referencias a rutas reales.
   ```
 - WebView2 Runtime (incluido en Windows 10/11).
 - Driver AMD/Intel/NVIDIA actualizado si se usa GPU.
+- CLI de OpenCode instalado y autenticado (solo para workflows):
+  ```powershell
+  npm install -g @opencode/cli
+  opencode
+  ```
+  StudyBoard reutiliza la autenticación que ya tienes en OpenCode. No pide
+  credenciales ni guarda tokens del proveedor.
 
 ## Instalación
 
@@ -144,9 +155,13 @@ OpenCode las prefija con el nombre del servidor:
 - `studyboard_search_transcripts`: búsqueda global sin distinguir tildes.
 - `studyboard_get_transcript`: transcripción completa o por rango de segundos.
 - `studyboard_capture_frame`: imagen de un segundo exacto del video.
+- `studyboard_list_workflow_results`: informes de tareas o parciales generados.
+- `studyboard_get_workflow_result`: informe completo por id, video o workflow.
 
-También expone recursos (`studyboard://overview`, `videos`, `transcripts`) y los
-prompts `/studyboard:resumir-clase` y `/studyboard:buscar-clases`.
+También expone recursos (`studyboard://overview`, `videos`, `transcripts`,
+`workflow-results`) y los prompts `/studyboard:resumir-clase`,
+`/studyboard:buscar-clases`, `/studyboard:extraer-tareas` y
+`/studyboard:puntos-parciales`.
 
 Ejemplos:
 
@@ -154,7 +169,42 @@ Ejemplos:
 Busca en mis clases dónde se explicó regresión logística y dame timestamps.
 Resume la clase 22Jul26 y muestra el frame de la matriz de confusión.
 Compara lo que se dijo sobre validación cruzada en dos clases.
+Muéstrame las tareas extraídas de la clase 22Jul26.
 ```
+
+## Workflows con OpenCode
+
+StudyBoard puede ejecutar OpenCode automáticamente sobre una clase transcrita.
+La app lanza `opencode run` con una sesión nueva y reutiliza la autenticación que
+ya configuraste en OpenCode; no hay un login aparte dentro de StudyBoard.
+
+Incluye dos workflows:
+
+- **Extracción de tareas** (`task-extraction`): actividades explícitas y
+  probables, requisitos, preferencias del profesor, plazos, canal de entrega,
+  modo individual/grupal, pistas de rúbrica, evidencia con timestamps y dudas
+  abiertas.
+- **Puntos para parciales** (`exam-focus`): información explícita del parcial
+  separada del énfasis del profesor, temas excluidos, formatos de pregunta, plan
+  de estudio priorizado, preguntas de práctica y advertencias. Nunca inventa
+  datos del parcial.
+
+Para ejecutar uno:
+
+1. Abre una clase transcrita y pulsa **Ejecutar workflow** en la barra del
+   tablero, o **Workflows** en el visor de transcripción.
+2. Selecciona uno o varios workflows y uno o varios videos transcritos.
+3. Elige el idioma de salida (Español o English).
+4. Pulsa **Ejecutar**.
+
+Cada resultado se coloca junto al video de origen como una tarjeta y se guarda
+como Markdown junto al video (`<video> - tareas.md` o `<video> - parcial.md`).
+Puedes arrastrar la tarjeta, copiar su contenido, mostrar el archivo en Explorer
+o quitarla del tablero sin borrar el Markdown.
+
+Las plantillas de prompt están en inglés para mayor fiabilidad del modelo. El
+informe final se escribe en el idioma elegido por el usuario. Los workflows
+requieren el CLI de OpenCode instalado y autenticado.
 
 ## Modelos
 
@@ -179,7 +229,7 @@ instalan localmente con `scripts/setup-engine.ps1`.
 
 ## Datos de la app
 
-- Estado de tableros: `%APPDATA%\StudyBoard App\state.json` (incluye tarjetas, notas y flechas).
+- Estado de tableros: `%APPDATA%\StudyBoard App\state.json` (incluye tarjetas, notas, flechas y resultados de workflows).
 - Transcripciones normalizadas: `%LOCALAPPDATA%\StudyBoard App\transcripts\`
 - Miniaturas: `%LOCALAPPDATA%\StudyBoard App\thumbs\`
 - Modelos descargados: `%LOCALAPPDATA%\StudyBoard App\models\`
@@ -209,6 +259,9 @@ callback de Whisper y de `-progress` de FFmpeg.
 ```text
 StudyBoardApp/
 ├── app.go              # bindings, estado, exportaciones
+├── workflows.go        # definiciones, prompts y resultados de workflows
+├── workflow_jobs.go    # cola y ejecución de OpenCode
+├── workflows/          # workflows declarativos y plantillas de prompt
 ├── jobs.go             # cola, FFmpeg, Whisper y transcripción normalizada
 ├── media.go            # servidor local de video/miniaturas y frames
 ├── engine.go           # detección de binarios y modelo
@@ -243,29 +296,34 @@ Los valores dependen del video, la GPU, el modelo y las aplicaciones abiertas.
 - Los timestamps que se muestran en la UI son por segmento; el JSON interno ya
   guarda timestamps por palabra, pendiente de explotar visualmente.
 - No hay diarización de hablantes.
-- No hay resumen automático con LLM dentro de la app; se exporta el texto.
+- Los workflows requieren el CLI de OpenCode instalado y autenticado.
 - MKV/AVI pueden no reproducirse dentro de WebView2; se ofrece abrirlo con el
   reproductor de Windows.
 - La búsqueda global está disponible vía MCP; la UI todavía no tiene un buscador
   entre todas las clases.
-- El servidor MCP es de solo lectura: no inicia transcripciones.
+- El servidor MCP es de solo lectura: no inicia transcripciones ni workflows.
 
 ## Roadmap
 
 1. Alineación forzada a nivel de palabra (WhisperX/wav2vec2 u ONNX).
-2. Frames automáticos y resumen con LLM enlazado a timestamps.
-3. Diarización profesor/alumnos.
-4. Búsqueda global dentro de la UI.
-5. Procesamiento por lotes de carpetas completas.
+2. Diarización profesor/alumnos.
+3. Búsqueda global dentro de la UI.
+4. Procesamiento por lotes de carpetas completas.
+5. Más workflows y una opción de traducción de informes.
 
 Referencia técnica para alineación y diarización:
 [jpgomezv/video-transcriber](https://github.com/jpgomezv/video-transcriber).
 
 ## Privacidad
 
-El audio y las transcripciones se procesan en la máquina. La app no sube
-contenido a internet. Solo se conecta para descargar binarios/modelos cuando tú
-lo solicitas.
+El audio y las transcripciones se procesan en la máquina. StudyBoard no sube
+contenido por su cuenta. Solo se conecta para descargar binarios/modelos cuando
+tú lo solicitas.
+
+Los workflows son distintos: invocan OpenCode con tu proveedor configurado, así
+que el contenido de la transcripción consultado por el modelo se envía a ese
+proveedor, igual que en cualquier sesión de OpenCode. Si no quieres eso, no
+ejecutes workflows.
 
 ## Licencia
 

@@ -24,12 +24,13 @@ type Card struct {
 
 // Board is a canvas with cards and freeform annotations.
 type Board struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Cards    []Card   `json:"cards"`
-	Notes    []Note   `json:"notes"`
-	Arrows   []Arrow  `json:"arrows"`
-	Viewport Viewport `json:"viewport"`
+	ID       string           `json:"id"`
+	Name     string           `json:"name"`
+	Cards    []Card           `json:"cards"`
+	Notes    []Note           `json:"notes"`
+	Arrows   []Arrow          `json:"arrows"`
+	Results  []WorkflowResult `json:"results"`
+	Viewport Viewport         `json:"viewport"`
 }
 
 // Note is a sticky note stored in the board JSON.
@@ -53,6 +54,62 @@ type Arrow struct {
 	Y2        float64 `json:"y2"`
 	Color     string  `json:"color"`
 	CreatedAt int64   `json:"createdAt"`
+}
+
+// WorkflowInfo is a declarative workflow exposed by the app and MCP.
+type WorkflowInfo struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	ShortName   string `json:"shortName"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	OutputFile  string `json:"outputFile"`
+}
+
+// WorkflowVideo is a transcribed video that can be used in a workflow run.
+type WorkflowVideo struct {
+	Path          string  `json:"path"`
+	Name          string  `json:"name"`
+	Class         string  `json:"class"`
+	Duration      float64 `json:"duration"`
+	HasTranscript bool    `json:"hasTranscript"`
+	Segments      int     `json:"segments"`
+}
+
+// WorkflowJob is one OpenCode execution of a workflow for a video.
+type WorkflowJob struct {
+	ID             string `json:"id"`
+	BoardID        string `json:"boardId"`
+	WorkflowID     string `json:"workflowId"`
+	WorkflowName   string `json:"workflowName"`
+	VideoPath      string `json:"videoPath"`
+	VideoName      string `json:"videoName"`
+	OutputLanguage string `json:"outputLanguage"`
+	Status         string `json:"status"`
+	Stage          string `json:"stage"`
+	Error          string `json:"error"`
+	SessionID      string `json:"sessionId"`
+	CreatedAt      int64  `json:"createdAt"`
+	StartedAt      int64  `json:"startedAt"`
+	FinishedAt     int64  `json:"finishedAt"`
+}
+
+// WorkflowResult is a rendered workflow output shown next to its video.
+type WorkflowResult struct {
+	ID           string  `json:"id"`
+	WorkflowID   string  `json:"workflowId"`
+	WorkflowName string  `json:"workflowName"`
+	VideoPath    string  `json:"videoPath"`
+	VideoName    string  `json:"videoName"`
+	ClassName    string  `json:"className"`
+	Content      string  `json:"content"`
+	FilePath     string  `json:"filePath"`
+	SessionID    string  `json:"sessionId"`
+	X            float64 `json:"x"`
+	Y            float64 `json:"y"`
+	Width        float64 `json:"width"`
+	Height       float64 `json:"height"`
+	CreatedAt    int64   `json:"createdAt"`
 }
 
 // EngineStatus describes the local transcription toolchain.
