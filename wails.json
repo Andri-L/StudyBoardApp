@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "StudyBoard App",
+  "outputfilename": "StudyBoardApp",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Andri-L",
+    "email": "andreslondo255@gmail.com"
+  },
+  "info": {
+    "companyName": "Andri-L",
+    "productName": "StudyBoard App",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2026 Andri-L",
+    "comments": "Visual workspace and local transcription for classes"
+  }
+}
