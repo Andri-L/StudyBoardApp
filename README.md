@@ -1,118 +1,125 @@
 # StudyBoard App
 
-**Espacio de trabajo visual y transcripción local para clases y tutoriales.**
+**Visual workspace and local transcription for classes and tutorials.**
 
-StudyBoard App organiza carpetas y videos en tableros, transcribe las grabaciones
-con Whisper en tu propia máquina y permite consultar el contenido desde
-**OpenCode TUI** mediante un servidor MCP.
+[English](README.md) · [Español](README.es.md)
 
-La app **nunca mueve, renombra ni borra tus archivos**: las tarjetas son
-referencias a rutas reales.
+StudyBoard App organizes folders and videos on visual boards, transcribes
+recordings locally with Whisper, and lets you query the content from
+**OpenCode TUI** through an MCP server.
 
-## Características
+The app **never moves, renames, or deletes your files**: board cards are
+references to real paths.
 
-- Tablero visual con tarjetas de carpetas y videos (React Flow).
-- Clic derecho en el tablero para crear **carpetas reales**, **notas adhesivas** y **flechas** de anotación.
-- Las notas y flechas guardan texto, color y coordenadas en `state.json`.
-- Varios tableros por materia y navegador de carpetas integrado.
-- Transcripción local con Whisper.cpp y GPU AMD mediante Vulkan.
-- Timestamps por segmento y por palabra en el JSON interno.
-- Visor de video sincronizado: clic en un timestamp salta al momento exacto.
-- Búsqueda dentro de la transcripción, modo “Seguir” y captura de frames.
-- Cola de transcripciones con progreso, cancelación y reintento.
-- Exportación a Markdown con timestamps y SRT.
-- Descarga y selección de modelos desde la interfaz, sin salir de la app.
-- Selector de idioma: Español, English o detección automática.
-- Servidor MCP para consultar las clases desde OpenCode sin abrir la app.
-- La ventana no se queda siempre encima.
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Platform: Windows](https://img.shields.io/badge/Platform-Windows-0078D6)
+![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8)
+![React](https://img.shields.io/badge/React-19-61DAFB)
+
+## Features
+
+- Visual board with folder and video cards (React Flow).
+- Right-click on the board to create **real folders**, **sticky notes**, and
+  freeform **arrows**.
+- Notes and arrows persist text, color, and coordinates in the board JSON.
+- Multiple boards per subject and an integrated folder browser.
+- Local transcription with Whisper.cpp and Vulkan GPU acceleration.
+- Segment-level and word-level timestamps in the internal JSON.
+- Video player synchronized with the transcript; click a timestamp to seek.
+- In-transcript search, follow mode, and frame capture.
+- Transcription queue with progress, cancellation, and retry.
+- Markdown (with timestamps) and SRT export.
+- Model manager with bundled download support for `tiny`, `base`, `small`,
+  `small-q5`, `medium-q5`, `large-v3-turbo`, and `distil-large-v3`.
+- Language selector: Spanish, English, or automatic detection.
+- MCP server for querying classes from OpenCode without opening the app.
+- The window no longer stays always on top.
 
 ## Stack
 
-- **Go + Wails v2** para la aplicación de escritorio (WebView2).
-- **React + TypeScript + Vite** para la interfaz.
-- **React Flow** para el tablero.
-- **Whisper.cpp + FFmpeg** como binarios locales.
-- Servidor HTTP local con token para servir video con soporte de `Range`.
-- Servidor MCP JSON-RPC por stdio para OpenCode.
+- **Go + Wails v2** desktop application (WebView2).
+- **React + TypeScript + Vite** frontend.
+- **React Flow** for the board.
+- **Whisper.cpp + FFmpeg** as local binaries.
+- Local HTTP server with a token for Range-capable video playback.
+- MCP JSON-RPC server over stdio for OpenCode.
 
-## Requisitos
+## Requirements
 
 - Windows 10/11.
-- Go 1.22+ (probado con 1.26).
+- Go 1.22+ (tested with 1.26).
 - Node.js 20+.
 - Wails CLI:
   ```powershell
   go install github.com/wailsapp/wails/v2/cmd/wails@latest
   ```
-- WebView2 Runtime (incluido en Windows 10/11).
-- Driver AMD/Intel/NVIDIA actualizado si se usa GPU.
+- WebView2 Runtime (included with Windows 10/11).
+- An up-to-date GPU driver if GPU acceleration is used.
 
-## Instalación
+## Installation
 
 ```powershell
 git clone https://github.com/Andri-L/StudyBoardApp.git
 cd StudyBoardApp
 
-# Descarga Whisper Vulkan, FFmpeg, VAD y el modelo turbo (~574 MB).
+# Downloads Whisper Vulkan, FFmpeg, VAD, and the turbo model (~574 MB).
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-engine.ps1
 
-# Compila la app y el servidor MCP.
+# Builds the desktop app and the MCP server.
 powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1
 ```
 
-El ejecutable queda en:
+The app executable is:
 
 ```text
 build\bin\StudyBoardApp.exe
 ```
 
-El servidor MCP queda en:
+The MCP server is:
 
 ```text
 build\bin\StudyBoardMCP.exe
 ```
 
-### Otros modelos en la instalación
-
-El script acepta un modelo inicial distinto:
+### Choosing a different initial model
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-engine.ps1 -Model small-q5
 ```
 
-Valores: `turbo`, `small-q5`, `small`, `base-q5`, `none`. También puedes elegir
-`none` y descargar modelos luego desde el menú del modelo en la app.
+Accepted values: `turbo`, `small-q5`, `small`, `base-q5`, `none`. You can also
+use `none` and download models later from the model menu inside the app.
 
-## Ejecutar en desarrollo
+## Development
 
 ```powershell
 $env:WAILS_DEV_ALLOWED_HOSTS = "wails.localhost"
 wails dev
 ```
 
-Si `wails` no está en el PATH:
+If `wails` is not on your PATH:
 
 ```powershell
 & "$env:USERPROFILE\go\bin\wails.exe" dev
 ```
 
-## Integración con OpenCode TUI (MCP)
+## OpenCode TUI integration (MCP)
 
-El servidor MCP lee el workspace y las transcripciones guardadas. Funciona aunque
-la interfaz de StudyBoard esté cerrada. Regístralo una vez:
+The MCP server reads the workspace and saved transcripts. It works even when the
+StudyBoard UI is closed. Register it once:
 
 ```powershell
-opencode mcp add studyboard --global -- "C:\ruta\StudyBoardApp\build\bin\StudyBoardMCP.exe"
+opencode mcp add studyboard --global -- "C:\path\to\StudyBoardApp\build\bin\StudyBoardMCP.exe"
 opencode mcp list
 ```
 
-Deberías ver:
+Expected output:
 
 ```text
 ✓ studyboard  connected
 ```
 
-Configuración manual en `~/.config/opencode/opencode.jsonc`:
+Manual configuration in `~/.config/opencode/opencode.jsonc`:
 
 ```jsonc
 {
@@ -122,7 +129,7 @@ Configuración manual en `~/.config/opencode/opencode.jsonc`:
       "studyboard": {
         "type": "local",
         "command": [
-          "C:\\ruta\\StudyBoardApp\\build\\bin\\StudyBoardMCP.exe"
+          "C:\\path\\to\\StudyBoardApp\\build\\bin\\StudyBoardMCP.exe"
         ]
       }
     }
@@ -130,141 +137,142 @@ Configuración manual en `~/.config/opencode/opencode.jsonc`:
 }
 ```
 
-`StudyBoardMCP.exe` detecta automáticamente el modo MCP. El ejecutable de la
-interfaz (`StudyBoardApp.exe`) también acepta `--mcp`.
+`StudyBoardMCP.exe` automatically enters MCP mode. The desktop executable
+(`StudyBoardApp.exe`) also accepts `--mcp`.
 
-### Herramientas expuestas
+### Exposed tools
 
-OpenCode las prefija con el nombre del servidor:
+OpenCode prefixes tools with the server name:
 
-- `studyboard_overview`: workspace, tableros, videos, transcripciones y modelo.
-- `studyboard_list_videos`: videos con clase, duración y estado.
-- `studyboard_search_transcripts`: búsqueda global sin distinguir tildes.
-- `studyboard_get_transcript`: transcripción completa o por rango de segundos.
-- `studyboard_capture_frame`: imagen de un segundo exacto del video.
+- `studyboard_overview`: workspace, boards, videos, transcripts, and model.
+- `studyboard_list_videos`: videos with class, duration, and transcript status.
+- `studyboard_search_transcripts`: global accent-insensitive search.
+- `studyboard_get_transcript`: full transcript or a timestamp range.
+- `studyboard_capture_frame`: image from an exact second in a video.
 
-También expone recursos (`studyboard://overview`, `videos`, `transcripts`) y los
-prompts `/studyboard:resumir-clase` y `/studyboard:buscar-clases`.
+It also exposes resources (`studyboard://overview`, `videos`, `transcripts`) and
+the prompts `/studyboard:resumir-clase` and `/studyboard:buscar-clases`.
 
-Ejemplos:
+Examples:
 
 ```text
-Busca en mis clases dónde se explicó regresión logística y dame timestamps.
-Resume la clase 22Jul26 y muestra el frame de la matriz de confusión.
-Compara lo que se dijo sobre validación cruzada en dos clases.
+Find where regression was explained in my classes and give me timestamps.
+Summarize class 22Jul26 and show the frame with the confusion matrix.
+Compare what was said about cross-validation in two classes.
 ```
 
-## Modelos
+## Models
 
-La app incluye un menú rápido en la barra superior con el modelo exacto activo,
-por ejemplo `large-v3-turbo-q5_0 · Vulkan`. Desde ahí puedes:
+The quick settings menu in the top toolbar shows the exact active model, for
+example `large-v3-turbo-q5_0 · Vulkan`. From there you can:
 
-- Ver modelos instalados y su tamaño.
-- Descargar `small`, `small-q5`, `base-q5`, `medium-q5`, `tiny` o
+- View installed models and their sizes.
+- Download `small`, `small-q5`, `base-q5`, `medium-q5`, `tiny`, or
   `distil-large-v3`.
-- Cambiar el modelo activo para las próximas transcripciones.
-- Elegir Español, English o detección automática.
-- Abrir la carpeta de modelos.
+- Switch the active model for future transcriptions.
+- Choose Spanish, English, or automatic detection.
+- Open the models folder.
 
-Las descargas se guardan en:
+Downloads are stored in:
 
 ```text
 %LOCALAPPDATA%\StudyBoard App\models\
 ```
 
-No se suben modelos al repositorio. Los binarios de Whisper/FFmpeg también se
-instalan localmente con `scripts/setup-engine.ps1`.
+Models are not committed to this repository. Whisper/FFmpeg binaries are also
+installed locally by `scripts/setup-engine.ps1`.
 
-## Datos de la app
+## App data
 
-- Estado de tableros: `%APPDATA%\StudyBoard App\state.json` (incluye tarjetas, notas y flechas).
-- Transcripciones normalizadas: `%LOCALAPPDATA%\StudyBoard App\transcripts\`
-- Miniaturas: `%LOCALAPPDATA%\StudyBoard App\thumbs\`
-- Modelos descargados: `%LOCALAPPDATA%\StudyBoard App\models\`
-- Temporales de trabajos: `%LOCALAPPDATA%\StudyBoard App\jobs\`
+- Board state: `%APPDATA%\StudyBoard App\state.json` (cards, notes, arrows).
+- Normalized transcripts: `%LOCALAPPDATA%\StudyBoard App\transcripts\`
+- Thumbnails: `%LOCALAPPDATA%\StudyBoard App\thumbs\`
+- Downloaded models: `%LOCALAPPDATA%\StudyBoard App\models\`
+- Job temporary files: `%LOCALAPPDATA%\StudyBoard App\jobs\`
 
-Las transcripciones se invalidan automáticamente si el video cambia de tamaño o
-fecha de modificación. No se guardan copias de los videos.
+Transcripts are invalidated automatically when the source video changes size or
+modification time. Video files are never copied.
 
-## Pipeline de transcripción
+## Transcription pipeline
 
 ```text
 video
-  └─ ffmpeg -vn -ac 1 -ar 16000 -c:a pcm_s16le → audio.wav temporal
+  └─ ffmpeg -vn -ac 1 -ar 16000 -c:a pcm_s16le → temporary audio.wav
        └─ whisper-cli -l <es|en|auto> -ojf -osrt --vad -pp
-            └─ JSON normalizado (segmentos + palabras + confianza)
-                 ├─ visor y timestamps
-                 ├─ export .md / .srt
-                 └─ frames bajo demanda con ffmpeg
+            └─ normalized JSON (segments + words + confidence)
+                 ├─ viewer and timestamps
+                 ├─ .md / .srt export
+                 └─ on-demand frames with ffmpeg
 ```
 
-El modelo recomendado es `ggml-large-v3-turbo-q5_0.bin` con VAD Silero. La cola
-procesa una tarea a la vez para no competir por la GPU. El progreso se lee del
-callback de Whisper y de `-progress` de FFmpeg.
+The recommended model is `ggml-large-v3-turbo-q5_0.bin` with Silero VAD. The
+queue processes one job at a time to avoid GPU contention. Progress is parsed
+from Whisper's callback and FFmpeg's `-progress` output.
 
-## Estructura del proyecto
+## Project structure
 
 ```text
 StudyBoardApp/
-├── app.go              # bindings, estado, exportaciones
-├── jobs.go             # cola, FFmpeg, Whisper y transcripción normalizada
-├── media.go            # servidor local de video/miniaturas y frames
-├── engine.go           # detección de binarios y modelo
-├── models.go           # catálogo y descarga de modelos
-├── mcp.go              # servidor MCP JSON-RPC por stdio
-├── mcp_data.go         # herramientas, recursos y prompts del MCP
-├── store.go            # persistencia JSON, fechas y helpers
-├── types.go            # tipos compartidos
+├── app.go              # bindings, state, exports
+├── board_items.go      # folders, sticky notes, and arrow annotations
+├── jobs.go             # queue, FFmpeg, Whisper, normalized transcripts
+├── media.go            # local video/thumbnail/frame server
+├── engine.go           # binary and model discovery
+├── models.go           # model catalog and downloads
+├── mcp.go              # MCP JSON-RPC server over stdio
+├── mcp_data.go         # MCP tools, resources, and prompts
+├── store.go            # JSON persistence, dates, helpers
+├── types.go            # shared types
 ├── scripts/
 │   ├── setup-engine.ps1
 │   └── build.ps1
 ├── frontend/           # React + React Flow
-└── build/              # icono y salida de compilación (build/bin ignorado)
+└── build/              # icon and build output (build/bin ignored)
 ```
 
-## Rendimiento medido
+## Measured performance
 
-Medición de referencia en Windows 11 con una **Radeon RX 6650 XT (8 GB)** y CS2
-abierto:
+Reference measurement on Windows 11 with an **AMD Radeon RX 6650 XT (8 GB)** and
+Counter-Strike 2 running:
 
-- Clase de 42:20 en inglés: **11:05** de transcripción (~3,8× tiempo real).
-- `large-v3-turbo-q5_0` + VAD, 1.617 segmentos.
-- VRAM total del adaptador: 7,4–7,9 GB de 8 GB.
-- Con la GPU tan cargada, `small-q5` puede fallar al inicializar Vulkan por falta
-  de VRAM. Para transcripciones largas se recomienda no competir con un juego.
-- En una máquina sin carga, el rendimiento es considerablemente mejor.
+- 42:20 English class: **11:05** transcription time (~3.8× real time).
+- `large-v3-turbo-q5_0` + VAD, 1,617 segments.
+- Total adapter VRAM: 7.4–7.9 GB out of 8 GB.
+- Under that GPU pressure, `small-q5` can fail to initialize Vulkan due to VRAM
+  exhaustion. For long transcriptions, avoid competing with a game.
+- Performance is significantly better on an idle machine.
 
-Los valores dependen del video, la GPU, el modelo y las aplicaciones abiertas.
+Results depend on the video, GPU, model, and open applications.
 
-## Limitaciones actuales
+## Current limitations
 
-- Los timestamps que se muestran en la UI son por segmento; el JSON interno ya
-  guarda timestamps por palabra, pendiente de explotar visualmente.
-- No hay diarización de hablantes.
-- No hay resumen automático con LLM dentro de la app; se exporta el texto.
-- MKV/AVI pueden no reproducirse dentro de WebView2; se ofrece abrirlo con el
-  reproductor de Windows.
-- La búsqueda global está disponible vía MCP; la UI todavía no tiene un buscador
-  entre todas las clases.
-- El servidor MCP es de solo lectura: no inicia transcripciones.
+- The UI displays segment-level timestamps; word-level timestamps are already
+  stored in the JSON but not yet used for navigation.
+- No speaker diarization.
+- No automatic LLM summary inside the app; transcripts can be exported.
+- Some MKV/AVI files may not play inside WebView2; an external player option is
+  provided.
+- Global search is available through MCP; the UI does not yet have a
+  cross-class search page.
+- The MCP server is read-only: it does not start transcriptions.
 
 ## Roadmap
 
-1. Alineación forzada a nivel de palabra (WhisperX/wav2vec2 u ONNX).
-2. Frames automáticos y resumen con LLM enlazado a timestamps.
-3. Diarización profesor/alumnos.
-4. Búsqueda global dentro de la UI.
-5. Procesamiento por lotes de carpetas completas.
+1. Word-level forced alignment (WhisperX/wav2vec2 or ONNX).
+2. Automatic frames and timestamp-linked LLM summaries.
+3. Speaker diarization (teacher/students).
+4. Global search inside the UI.
+5. Batch processing of entire folders.
 
-Referencia técnica para alineación y diarización:
+Technical reference for alignment and diarization:
 [jpgomezv/video-transcriber](https://github.com/jpgomezv/video-transcriber).
 
-## Privacidad
+## Privacy
 
-El audio y las transcripciones se procesan en la máquina. La app no sube
-contenido a internet. Solo se conecta para descargar binarios/modelos cuando tú
-lo solicitas.
+Audio and transcripts are processed on your machine. The app does not upload
+content to the internet. It only connects to download binaries or models when
+you request them.
 
-## Licencia
+## License
 
-GNU General Public License v3.0. Consulta [LICENSE](LICENSE).
+GNU General Public License v3.0. See [LICENSE](LICENSE).
