@@ -110,7 +110,7 @@ func (a *App) modelInfos() []ModelInfo {
 			Description: spec.Description,
 			URL:         spec.URL,
 			Size:        spec.Size,
-			Downloaded:  path != "",
+			Downloaded:  path != "" && validModelFile(path, spec),
 			Active:      spec.File == activeFile,
 			Path:        path,
 		}
@@ -130,12 +130,16 @@ func (a *App) downloadDir() string {
 
 // SelectModel switches the active Whisper model.
 func (a *App) SelectModel(file string) (AppState, error) {
-	if _, ok := modelSpecByFile(file); !ok {
+	spec, ok := modelSpecByFile(file)
+	if !ok {
 		return AppState{}, fmt.Errorf("modelo desconocido")
 	}
 	path := findFileInDirs(modelDirs(a.engine.BaseDir), file)
 	if path == "" {
 		return AppState{}, fmt.Errorf("el modelo todavía no está descargado")
+	}
+	if !validModelFile(path, spec) {
+		return AppState{}, fmt.Errorf("el archivo del modelo está incompleto o no es válido")
 	}
 	a.mu.Lock()
 	a.selectedModel = file
@@ -155,7 +159,7 @@ func (a *App) DownloadModel(file string) (ModelDownload, error) {
 	if !ok {
 		return ModelDownload{}, fmt.Errorf("modelo desconocido")
 	}
-	if path := findFileInDirs(modelDirs(a.engine.BaseDir), file); path != "" {
+	if path := findFileInDirs(modelDirs(a.engine.BaseDir), file); path != "" && validModelFile(path, spec) {
 		if _, err := a.SelectModel(file); err != nil {
 			return ModelDownload{}, err
 		}
@@ -229,19 +233,28 @@ func (a *App) runModelDownload(spec modelSpec) {
 		})
 	}
 
-	if err := os.MkdirAll(a.downloadDir(), 0o755); err != nil {
+	if err := os.MkdirAll(a.downloadDir(), 0o700); err != nil {
 		fail(err)
 		return
 	}
 	dest := filepath.Join(a.downloadDir(), spec.File)
-	tmp := dest + ".part"
-	_ = os.Remove(tmp)
+	out, err := os.CreateTemp(a.downloadDir(), spec.File+".part-*")
+	if err != nil {
+		fail(err)
+		return
+	}
+	tmp := out.Name()
+	renamed := false
 	defer func() {
-		// If the download failed or was canceled, do not leave a partial model.
-		if _, err := os.Stat(tmp); err == nil {
+		_ = out.Close()
+		if !renamed {
 			_ = os.Remove(tmp)
 		}
 	}()
+	if err := out.Chmod(0o600); err != nil {
+		fail(err)
+		return
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, spec.URL, nil)
 	if err != nil {
@@ -249,7 +262,7 @@ func (a *App) runModelDownload(spec modelSpec) {
 		return
 	}
 	req.Header.Set("User-Agent", "StudyBoardApp/"+appVersion)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := secureDownloadClient().Do(req)
 	if err != nil {
 		fail(err)
 		return
@@ -259,37 +272,29 @@ func (a *App) runModelDownload(spec modelSpec) {
 		fail(fmt.Errorf("la descarga respondió %s", resp.Status))
 		return
 	}
-	out, err := os.Create(tmp)
-	if err != nil {
-		fail(err)
+	if resp.ContentLength > 0 && resp.ContentLength != spec.Size {
+		fail(fmt.Errorf("tamaño de descarga inesperado (%d bytes)", resp.ContentLength))
 		return
 	}
 
-	total := resp.ContentLength
-	if total <= 0 {
-		total = spec.Size
-	}
+	total := int64(spec.Size)
 	var written int64
 	lastEmit := time.Now()
 	buf := make([]byte, 512*1024)
+	body := io.LimitReader(resp.Body, spec.Size+1)
 	for {
-		n, readErr := resp.Body.Read(buf)
+		n, readErr := body.Read(buf)
 		if n > 0 {
 			if _, writeErr := out.Write(buf[:n]); writeErr != nil {
-				_ = out.Close()
-				_ = os.Remove(tmp)
 				fail(writeErr)
 				return
 			}
 			written += int64(n)
 			if time.Since(lastEmit) > 350*time.Millisecond {
 				lastEmit = time.Now()
-				progress := 0.0
-				if total > 0 {
-					progress = float64(written) / float64(total) * 100
-					if progress > 100 {
-						progress = 100
-					}
+				progress := float64(written) / float64(total) * 100
+				if progress > 100 {
+					progress = 100
 				}
 				update(func(d *ModelDownload) {
 					d.Progress = progress
@@ -302,27 +307,33 @@ func (a *App) runModelDownload(spec modelSpec) {
 			break
 		}
 		if readErr != nil {
-			_ = out.Close()
-			_ = os.Remove(tmp)
 			fail(readErr)
 			return
 		}
 	}
+	if written != spec.Size {
+		fail(fmt.Errorf("tamaño de descarga inválido (%d de %d bytes)", written, spec.Size))
+		return
+	}
 	if err := out.Close(); err != nil {
-		_ = os.Remove(tmp)
 		fail(err)
 		return
 	}
-	if total > 0 && written != total {
-		_ = os.Remove(tmp)
-		fail(fmt.Errorf("descarga incompleta (%d de %d bytes)", written, total))
+	if !isGGMLModel(tmp) {
+		fail(fmt.Errorf("el archivo descargado no es un modelo Whisper válido"))
 		return
 	}
 	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
-		fail(err)
-		return
+		if removeErr := os.Remove(dest); removeErr != nil && !os.IsNotExist(removeErr) {
+			fail(err)
+			return
+		}
+		if renameErr := os.Rename(tmp, dest); renameErr != nil {
+			fail(renameErr)
+			return
+		}
 	}
+	renamed = true
 	update(func(d *ModelDownload) {
 		d.Status = "done"
 		d.Progress = 100
@@ -336,7 +347,7 @@ func (a *App) runModelDownload(spec modelSpec) {
 // OpenModelsFolder opens the LocalAppData models directory in Explorer.
 func (a *App) OpenModelsFolder() error {
 	dir := a.downloadDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	cmd := exec.Command("explorer.exe", dir)

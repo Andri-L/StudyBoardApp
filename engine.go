@@ -46,11 +46,10 @@ func engineCandidates() []string {
 	if env := os.Getenv("STUDYBOARD_ENGINE_DIR"); env != "" {
 		add(env)
 	}
-	if cwd, err := os.Getwd(); err == nil {
-		add(cwd)
-		add(filepath.Join(cwd, ".."))
-		add(filepath.Join(cwd, "..", ".."))
-	}
+	// Only trust locations derived from the executable or explicit environment
+	// variables. Never discover engine binaries in the current directory: the
+	// app can be started from a class workspace, and a planted ffmpeg/whisper
+	// executable must not run.
 	exe := executableDir()
 	add(exe)
 	add(filepath.Join(exe, ".."))

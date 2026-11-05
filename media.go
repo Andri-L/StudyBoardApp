@@ -24,12 +24,12 @@ type mediaServer struct {
 	token   string
 }
 
-func randomToken() string {
+func randomToken() (string, error) {
 	b := make([]byte, 18)
 	if _, err := rand.Read(b); err != nil {
-		return strconv.FormatInt(time.Now().UnixNano(), 16)
+		return "", fmt.Errorf("no se pudo generar el token del servidor local: %w", err)
 	}
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b), nil
 }
 
 func startMediaServer(app *App) (*mediaServer, error) {
@@ -37,7 +37,11 @@ func startMediaServer(app *App) (*mediaServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	token := randomToken()
+	token, err := randomToken()
+	if err != nil {
+		_ = ln.Close()
+		return nil, err
+	}
 	m := &mediaServer{app: app, token: token}
 	prefix := "/m/" + token
 	mux := http.NewServeMux()
@@ -46,6 +50,9 @@ func startMediaServer(app *App) (*mediaServer, error) {
 	m.server = &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: 15 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 	m.baseURL = fmt.Sprintf("http://%s%s", ln.Addr().String(), prefix)
 	go func() {
@@ -63,17 +70,26 @@ func (m *mediaServer) stop() {
 }
 
 func (m *mediaServer) allowed(path string) bool {
-	if path == "" {
+	if path == "" || !isVideo(path) {
 		return false
 	}
 	m.app.mu.RLock()
 	root := m.app.state.Workspace
 	m.app.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return false
 	}
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+func setMediaHeaders(w http.ResponseWriter) {
+	// The endpoint is intentionally readable only through the unguessable
+	// token in the URL. Do not add a wildcard CORS policy: the app does not
+	// need cross-origin JavaScript access to these responses.
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
 }
 
 func (m *mediaServer) handleFile(w http.ResponseWriter, r *http.Request) {
@@ -86,12 +102,16 @@ func (m *mediaServer) handleFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "archivo no permitido", http.StatusForbidden)
 		return
 	}
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setMediaHeaders(w)
 	w.Header().Set("Cache-Control", "private, max-age=3600")
 	http.ServeFile(w, r, path)
 }
 
 func (m *mediaServer) handleThumb(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	path := r.URL.Query().Get("path")
 	if !m.allowed(path) {
 		http.Error(w, "archivo no permitido", http.StatusForbidden)
@@ -111,7 +131,7 @@ func (m *mediaServer) handleThumb(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	setMediaHeaders(w)
 	w.Header().Set("Cache-Control", "private, max-age=86400")
 	http.ServeFile(w, r, thumbPath)
 }

@@ -269,7 +269,7 @@ func (a *App) AddCard(boardID, path string, x, y float64) (AppState, error) {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return AppState{}, fmt.Errorf("el elemento está fuera del espacio de trabajo")
 	}
 	info, err := os.Stat(path)
@@ -371,7 +371,7 @@ func (a *App) ListDir(path string) ([]DirEntry, error) {
 		path = root
 	}
 	path = absClean(path)
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return nil, fmt.Errorf("carpeta fuera del espacio de trabajo")
 	}
 	items, err := os.ReadDir(path)
@@ -420,7 +420,7 @@ func (a *App) GetMediaInfo(path string) (MediaInfo, error) {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return MediaInfo{}, fmt.Errorf("video fuera del espacio de trabajo")
 	}
 	info, err := os.Stat(path)
@@ -472,7 +472,7 @@ func (a *App) GetTranscript(path string) (Transcript, error) {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return Transcript{}, fmt.Errorf("video fuera del espacio de trabajo")
 	}
 	tr, err := a.loadTranscript(path)
@@ -491,7 +491,7 @@ func (a *App) StartTranscription(path, cardID string) (Job, error) {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return Job{}, fmt.Errorf("el video está fuera del espacio de trabajo")
 	}
 	job, err := a.enqueueJob(path, cardID)
@@ -534,7 +534,14 @@ func (a *App) GetJobs() []Job {
 
 // ExportTranscript writes a Markdown or SRT file chosen by the user.
 func (a *App) ExportTranscript(mediaPath, format string) (string, error) {
-	tr, err := a.loadTranscript(absClean(mediaPath))
+	mediaPath = absClean(mediaPath)
+	a.mu.RLock()
+	root := a.state.Workspace
+	a.mu.RUnlock()
+	if !insideRootResolved(root, mediaPath) {
+		return "", fmt.Errorf("video fuera del espacio de trabajo")
+	}
+	tr, err := a.loadTranscript(mediaPath)
 	if err != nil {
 		return "", err
 	}
@@ -572,7 +579,7 @@ func (a *App) ExportTranscript(mediaPath, format string) (string, error) {
 	} else {
 		content = toMarkdown(tr)
 	}
-	if err := os.WriteFile(out, []byte(content), 0o644); err != nil {
+	if err := writeFileAtomic(out, []byte(content), 0o600); err != nil {
 		return "", err
 	}
 	return out, nil
@@ -609,7 +616,7 @@ func (a *App) Reveal(path string) error {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return fmt.Errorf("ruta fuera del espacio de trabajo")
 	}
 	info, err := os.Stat(path)
@@ -631,12 +638,31 @@ func (a *App) OpenExternal(path string) error {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
-		return fmt.Errorf("ruta fuera del espacio de trabajo")
+	if !insideRootResolved(root, path) || !isVideo(path) {
+		return fmt.Errorf("ruta fuera del espacio de trabajo o no es un video")
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return fmt.Errorf("no se encontró el video")
 	}
 	cmd := exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", path)
 	hideWindow(cmd)
 	return cmd.Start()
+}
+
+// OpenURL opens an http/https link in the user's default browser. Workflow
+// reports are model output and therefore untrusted: they must never be able to
+// open local files, scripts, or navigate the app WebView.
+func (a *App) OpenURL(rawURL string) error {
+	parsed, err := validateExternalURL(rawURL)
+	if err != nil {
+		return err
+	}
+	if a.ctx == nil {
+		return fmt.Errorf("la aplicación no está lista")
+	}
+	wailsRuntime.BrowserOpenURL(a.ctx, parsed.String())
+	return nil
 }
 
 // CaptureFrame extracts a frame at a given second and returns a JPEG data URL.
@@ -648,7 +674,7 @@ func (a *App) CaptureFrame(path string, second float64) (string, error) {
 }
 
 func (a *App) captureFrameData(root, path string, second float64) (string, error) {
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return "", fmt.Errorf("archivo fuera del espacio de trabajo")
 	}
 	return a.renderFrame(absClean(path), second)
@@ -666,7 +692,7 @@ func (a *App) ProbeMedia(path string) (ClipInfo, error) {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, path) {
+	if !insideRootResolved(root, path) {
 		return ClipInfo{}, fmt.Errorf("ruta fuera del espacio de trabajo")
 	}
 	return ClipInfo{Path: path, Duration: a.probeDuration(path)}, nil

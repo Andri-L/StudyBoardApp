@@ -106,7 +106,7 @@ func (a *App) enqueueJob(mediaPath, cardID string) (*Job, error) {
 	a.mu.RLock()
 	root := a.state.Workspace
 	a.mu.RUnlock()
-	if !insideRoot(root, mediaPath) {
+	if !insideRootResolved(root, mediaPath) {
 		return nil, fmt.Errorf("el video está fuera del espacio de trabajo")
 	}
 	if _, err := os.Stat(mediaPath); err != nil {
@@ -385,7 +385,7 @@ func (a *App) saveTranscript(mediaPath, whisperJSONPath string, duration float64
 	}
 	segments := make([]Segment, 0, len(w.Transcription))
 	for _, item := range w.Transcription {
-		text := strings.TrimSpace(item.Text)
+		text := strings.TrimSpace(sanitizeUntrustedText(item.Text))
 		if text == "" {
 			continue
 		}
@@ -426,13 +426,8 @@ func (a *App) saveTranscript(mediaPath, whisperJSONPath string, duration float64
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, out, 0o644); err != nil {
+	if err := writeFileAtomic(path, out, 0o600); err != nil {
 		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(path)
-		return os.Rename(tmp, path)
 	}
 	return nil
 }

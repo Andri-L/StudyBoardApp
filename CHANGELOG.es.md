@@ -2,6 +2,46 @@
 
 [English](CHANGELOG.md) · [Español](CHANGELOG.es.md)
 
+## v1.1.1 — 2026-11-05
+
+Versión de endurecimiento de seguridad.
+
+### Seguridad
+
+- Los workflows ejecutan OpenCode en una sesión standalone aislada con una
+  configuración generada en línea. Se deniegan shell, edición de archivos,
+  lectura directa, acceso web, subagentes, skills y LSP; solo se permiten las
+  herramientas MCP de solo lectura de StudyBoard, incluso con `--auto`.
+- Los workflows se ejecutan en un directorio vacío dedicado, no en el workspace
+  de clases, evitando que la configuración del proyecto, `AGENTS.md`, plugins
+  locales o DLLs plantadas influyan en el agente.
+- Las transcripciones y nombres de archivo se marcan como datos no confiables;
+  los metadatos se citan para que un nombre no pueda inyectar líneas al prompt.
+- Las rutas absolutas del MCP quedan restringidas al workspace y los enlaces
+  simbólicos/junctions se resuelven antes de acceder.
+- El servidor local de medios falla cerrado si no puede generar el token
+  aleatorio, sirve solo videos del workspace, rechaza rutas que resuelven fuera
+  y ya no envía CORS comodín.
+- Los informes bloquean imágenes remotas y HTML crudo. Los enlaces se limitan a
+  `http`/`https`, rechazan userinfo y hosts locales/loopback, y se abren en el
+  navegador del sistema en lugar de navegar dentro de la app.
+- La salida de workflows tiene límite de tamaño y se eliminan caracteres de
+  control, secuencias ANSI y overrides bidi Unicode antes de guardarla y
+  exponerla por MCP.
+- Las descargas de modelos exigen HTTPS, limitan redirecciones, verifican el
+  tamaño exacto del catálogo y la cabecera GGML, y usan archivos temporales
+  seguros.
+- Estado, transcripciones e informes se escriben de forma atómica con permisos
+  de usuario.
+- Los binarios de motor y OpenCode ya no se buscan en el directorio actual.
+- La compilación requiere Go 1.26.10, que incluye correcciones de
+  vulnerabilidades conocidas de la librería estándar.
+
+### Notas
+
+- `npm audit` y `govulncheck` no reportan vulnerabilidades conocidas.
+- Consulta `SECURITY.md` para el modelo de amenazas y los riesgos residuales.
+
 ## v1.1.0 — 2026-11-05
 
 Workflows automáticos de OpenCode en el workspace.

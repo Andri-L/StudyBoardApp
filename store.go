@@ -111,14 +111,7 @@ func (a *App) saveStateLocked() {
 	if err != nil {
 		return
 	}
-	tmp := a.statePath + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return
-	}
-	if err := os.Rename(tmp, a.statePath); err != nil {
-		_ = os.Remove(a.statePath)
-		_ = os.Rename(tmp, a.statePath)
-	}
+	_ = writeFileAtomic(a.statePath, data, 0o600)
 }
 
 func (a *App) boardIndex(id string) int {
@@ -304,7 +297,7 @@ func copyTree(src, dst string) error {
 			return err
 		}
 		defer in.Close()
-		out, err := os.Create(target)
+		out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 		if err != nil {
 			return err
 		}

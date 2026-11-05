@@ -1,6 +1,7 @@
 import type { Node, NodeProps } from '@xyflow/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
 import {
   ClipboardCopy,
   ExternalLink,
@@ -14,6 +15,18 @@ import { api, fileName, friendlyError } from '../api';
 
 type WorkflowResultNodeType = Node<{ result: WorkflowResult }, 'result'>;
 
+function safeWebUrl(raw?: string): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (!parsed.hostname || parsed.username || parsed.password) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function WorkflowResultNode({ data, selected }: NodeProps<WorkflowResultNodeType>) {
   const result = data.result;
   const removeWorkflowResult = useStudyBoard((s) => s.removeWorkflowResult);
@@ -26,6 +39,45 @@ export default function WorkflowResultNode({ data, selected }: NodeProps<Workflo
     } catch (err) {
       showToast(friendlyError(err), 'error');
     }
+  };
+
+  const openLink = async (raw?: string) => {
+    const url = safeWebUrl(raw);
+    if (!url) {
+      showToast('Enlace bloqueado: solo se permiten enlaces http o https', 'error');
+      return;
+    }
+    try {
+      await api.openUrl(url);
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    }
+  };
+
+  const components: Components = {
+    a: ({ href, children }) => {
+      const url = safeWebUrl(href);
+      if (!url) return <span className="md-link-blocked">{children}</span>;
+      return (
+        <button
+          type="button"
+          className="md-link"
+          title={url}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void openLink(url);
+          }}
+        >
+          {children}
+        </button>
+      );
+    },
+    img: ({ src, alt }) => (
+      <span className="md-image-blocked" title={typeof src === 'string' ? src : undefined}>
+        {alt ? `[imagen bloqueada: ${alt}]` : '[imagen externa bloqueada]'}
+      </span>
+    ),
   };
 
   return (
@@ -49,7 +101,14 @@ export default function WorkflowResultNode({ data, selected }: NodeProps<Workflo
       </header>
 
       <div className="workflow-result-body nodrag nowheel">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{result.content}</ReactMarkdown>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          skipHtml
+          components={components}
+          urlTransform={(url) => safeWebUrl(url) ?? ''}
+        >
+          {result.content}
+        </ReactMarkdown>
       </div>
 
       <footer className="workflow-result-foot">

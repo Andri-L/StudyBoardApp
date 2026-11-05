@@ -57,7 +57,7 @@ func (a *App) CreateFolderCard(boardID, parent, name string, x, y float64) (AppS
 		parent = root
 	}
 	parent = absClean(parent)
-	if !insideRoot(root, parent) {
+	if !insideRootResolved(root, parent) {
 		return AppState{}, fmt.Errorf("la carpeta padre está fuera del workspace")
 	}
 	info, err := os.Stat(parent)

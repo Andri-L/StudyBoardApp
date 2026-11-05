@@ -75,7 +75,8 @@ export default function WorkflowDialog() {
               <h2>Ejecutar workflow</h2>
               <p>
                 OpenCode se ejecutará automáticamente con tu sesión autenticada.
-                Cada ejecución usa una sesión nueva.
+                Cada ejecución usa una sesión nueva y solo puede consultar las
+                transcripciones mediante el MCP de StudyBoard.
               </p>
             </div>
           </div>

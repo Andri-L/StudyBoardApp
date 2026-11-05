@@ -1,6 +1,6 @@
 module studyboard
 
-go 1.26.0
+go 1.26.10
 
 require github.com/wailsapp/wails/v2 v2.17.1
 

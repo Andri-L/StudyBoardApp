@@ -44,7 +44,7 @@ referencias a rutas reales.
 ## Requisitos
 
 - Windows 10/11.
-- Go 1.22+ (probado con 1.26).
+- Go 1.26.10+ (incluye correcciones de seguridad de la librería estándar).
 - Node.js 20+.
 - Wails CLI:
   ```powershell
@@ -206,6 +206,13 @@ Las plantillas de prompt están en inglés para mayor fiabilidad del modelo. El
 informe final se escribe en el idioma elegido por el usuario. Los workflows
 requieren el CLI de OpenCode instalado y autenticado.
 
+Las ejecuciones están aisladas: OpenCode arranca con una configuración generada
+que deniega shell, edición de archivos, lecturas directas, acceso web,
+subagentes, skills y LSP. Solo se permiten las herramientas MCP de solo lectura
+de StudyBoard. El proceso también se ejecuta en un directorio dedicado, no en el
+workspace de clases, para que la configuración del proyecto y los archivos
+locales no puedan influirlo. Consulta `SECURITY.md` para más detalles.
+
 ## Modelos
 
 La app incluye un menú rápido en la barra superior con el modelo exacto activo,
@@ -259,6 +266,7 @@ callback de Whisper y de `-progress` de FFmpeg.
 ```text
 StudyBoardApp/
 ├── app.go              # bindings, estado, exportaciones
+├── security.go         # contención de rutas, escritura atómica, validación de URL
 ├── workflows.go        # definiciones, prompts y resultados de workflows
 ├── workflow_jobs.go    # cola y ejecución de OpenCode
 ├── workflows/          # workflows declarativos y plantillas de prompt
@@ -324,6 +332,26 @@ Los workflows son distintos: invocan OpenCode con tu proveedor configurado, así
 que el contenido de la transcripción consultado por el modelo se envía a ese
 proveedor, igual que en cualquier sesión de OpenCode. Si no quieres eso, no
 ejecutes workflows.
+
+## Seguridad
+
+La app trata el material de clase, las transcripciones y la salida del modelo
+como datos no confiables:
+
+- El servidor local de medios escucha solo en loopback, exige un token aleatorio
+  y sirve únicamente videos dentro del workspace.
+- Las rutas se resuelven antes de acceder para bloquear escapes por enlaces
+  simbólicos o junctions.
+- Los informes omiten HTML crudo, bloquean imágenes remotas y solo abren enlaces
+  en el navegador del sistema tras validar `http`/`https` y rechazar hosts
+  locales.
+- Las descargas de modelos exigen HTTPS y se verifican por tamaño y formato GGML.
+- El estado y los informes se escriben de forma atómica con permisos de usuario.
+- `npm audit` y `govulncheck` no reportan vulnerabilidades conocidas.
+
+Consulta [SECURITY.md](SECURITY.md) para el modelo de amenazas, los controles y
+los riesgos residuales. La app no puede proteger una máquina ya comprometida por
+malware que se ejecute como el mismo usuario de Windows.
 
 ## Licencia
 

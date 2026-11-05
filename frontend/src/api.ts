@@ -88,6 +88,7 @@ export const api = {
   copyText: (text: string) => invoke<void>('CopyText', text),
   reveal: (path: string) => invoke<void>('Reveal', path),
   openExternal: (path: string) => invoke<void>('OpenExternal', path),
+  openUrl: (url: string) => invoke<void>('OpenURL', url),
   captureFrame: (path: string, second: number) =>
     invoke<string>('CaptureFrame', path, second),
   probeMedia: (path: string) => invoke<ClipInfo>('ProbeMedia', path),

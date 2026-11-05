@@ -51,7 +51,7 @@ references to real paths.
 ## Requirements
 
 - Windows 10/11.
-- Go 1.22+ (tested with 1.26).
+- Go 1.26.10+ (includes standard-library security fixes).
 - Node.js 20+.
 - Wails CLI:
   ```powershell
@@ -209,6 +209,13 @@ Prompt templates are written in English for model reliability. The final report
 is written in the language selected by the user. Workflows require the OpenCode
 CLI to be installed and authenticated.
 
+Workflow runs are isolated: OpenCode is started with a generated configuration
+that denies shell, file editing, direct reads, web access, subagents, skills,
+and LSP tools. Only the read-only StudyBoard MCP tools are allowed. The process
+also runs in a dedicated directory, not in the class workspace, so project
+configuration and local files cannot influence it. See `SECURITY.md` for
+details.
+
 ## Models
 
 The quick settings menu in the top toolbar shows the exact active model, for
@@ -264,6 +271,7 @@ from Whisper's callback and FFmpeg's `-progress` output.
 StudyBoardApp/
 ├── app.go              # bindings, state, exports
 ├── board_items.go      # folders, sticky notes, and arrow annotations
+├── security.go         # path containment, atomic writes, URL validation
 ├── workflows.go        # workflow definitions, prompts, results
 ├── workflow_jobs.go    # OpenCode queue and execution
 ├── workflows/          # declarative workflows and prompt templates
@@ -328,6 +336,23 @@ request them.
 Workflows are different: they invoke OpenCode with your configured provider, so
 the transcript content consulted by the model is sent to that provider, exactly
 as in any OpenCode session. If you do not want that, do not run workflows.
+
+## Security
+
+The app treats class material, transcripts, and model output as untrusted:
+
+- The local media server binds to loopback, requires a random token, and serves
+  only videos inside the workspace.
+- Paths are resolved before access to block symlink and junction escapes.
+- Workflow reports skip raw HTML, block remote images, and open links only in the
+  system browser after validating `http`/`https` and rejecting local hosts.
+- Model downloads require HTTPS and are checked for size and GGML format.
+- State and report writes are atomic with user-only permissions.
+- `npm audit` and `govulncheck` report no known vulnerabilities.
+
+See [SECURITY.md](SECURITY.md) for the full threat model, controls, and residual
+risks. The app cannot protect a machine that is already compromised by malware
+running as the same Windows user.
 
 ## License
 

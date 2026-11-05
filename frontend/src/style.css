@@ -3564,6 +3564,36 @@ input:focus-visible {
   color: var(--accent);
 }
 
+.md-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.md-link:hover {
+  color: var(--accent-hover, #004f96);
+}
+
+.md-link-blocked {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.md-image-blocked {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px dashed #d0d0d0;
+  border-radius: 3px;
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+
 .workflow-result-body blockquote {
   margin: 6px 0;
   padding: 3px 8px;

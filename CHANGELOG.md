@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.1.1 — 2026-11-05
+
+Security hardening release.
+
+### Security
+
+- Workflows now run OpenCode in an isolated standalone session with a generated
+  inline configuration. Shell, file editing, direct file reads, web access,
+  subagents, skills, and LSP tools are denied; only the read-only StudyBoard MCP
+  tools are allowed, even with `--auto`.
+- Workflows run in a dedicated empty directory instead of the class workspace,
+  preventing project config, `AGENTS.md`, local plugins, and planted DLLs from
+  influencing the unattended agent.
+- Transcripts and file names are labeled as untrusted data; prompt metadata is
+  quoted so a file name cannot inject new prompt lines.
+- MCP absolute paths are restricted to the workspace and symlinks/junctions are
+  resolved before access.
+- The local media server now fails closed if it cannot generate its random
+  token, serves only workspace videos, rejects paths that resolve outside the
+  workspace, and no longer sends wildcard CORS headers.
+- Workflow reports block remote images and raw HTML. Links are limited to
+  `http`/`https`, reject userinfo and local/loopback hosts, and open in the
+  system browser instead of navigating the app.
+- Workflow output is size-limited and control characters, ANSI escapes, and
+  Unicode bidi overrides are removed before storage and MCP exposure.
+- Model downloads require HTTPS, limit redirects, verify the exact catalog size
+  and GGML magic header, and use safe temporary files.
+- State, transcript, and workflow files are written atomically with user-only
+  permissions.
+- Engine and OpenCode binaries are no longer discovered from the current
+  working directory.
+- The build now requires Go 1.26.10, which includes fixes for known
+  standard-library vulnerabilities.
+
+### Notes
+
+- `npm audit` and `govulncheck` report no known vulnerabilities.
+- See `SECURITY.md` for the threat model and residual risks.
+
 ## v1.1.0 — 2026-11-05
 
 Automatic OpenCode workflows in the workspace.
