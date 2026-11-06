@@ -4,10 +4,19 @@ import type { Arrow } from '../types';
 
 interface Props {
   arrows: Arrow[];
+  nodes: FlowNode[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onCommit: (id: string, x1: number, y1: number, x2: number, y2: number) => void;
   draft: { start: { x: number; y: number } | null; end: { x: number; y: number } | null } | null;
+}
+
+interface FlowNode {
+  id: string;
+  position: { x: number; y: number };
+  width?: number | null;
+  height?: number | null;
+  measured?: { width?: number; height?: number };
 }
 
 interface DragState {
@@ -16,6 +25,7 @@ interface DragState {
   origin: { x: number; y: number };
   moved: boolean;
   preview: Arrow;
+  snap: { x: number; y: number } | null;
 }
 
 function arrowPath(arrow: Arrow, draftType: 'straight' | 's' = 'straight'): { path: string; endAngle: number } {
@@ -43,10 +53,56 @@ function arrowPath(arrow: Arrow, draftType: 'straight' | 's' = 'straight'): { pa
       endAngle: Math.atan2(arrow.y2 - c2y, arrow.x2 - c2x),
     };
   }
+  if (type === 'square') {
+    const dx = arrow.x2 - arrow.x1;
+    const dy = arrow.y2 - arrow.y1;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      const midX = arrow.x1 + dx / 2;
+      return {
+        path: `M ${arrow.x1} ${arrow.y1} L ${midX} ${arrow.y1} L ${midX} ${arrow.y2} L ${arrow.x2} ${arrow.y2}`,
+        endAngle: dx >= 0 ? 0 : Math.PI,
+      };
+    }
+    const midY = arrow.y1 + dy / 2;
+    return {
+      path: `M ${arrow.x1} ${arrow.y1} L ${arrow.x1} ${midY} L ${arrow.x2} ${midY} L ${arrow.x2} ${arrow.y2}`,
+      endAngle: dy >= 0 ? Math.PI / 2 : -Math.PI / 2,
+    };
+  }
   return {
     path: `M ${arrow.x1} ${arrow.y1} L ${arrow.x2} ${arrow.y2}`,
     endAngle: Math.atan2(arrow.y2 - arrow.y1, arrow.x2 - arrow.x1),
   };
+}
+
+function snapToNodeEdge(
+  point: { x: number; y: number },
+  nodes: FlowNode[],
+): { x: number; y: number } | null {
+  const margin = 28;
+  let best: { point: { x: number; y: number }; distance: number } | null = null;
+  for (const node of nodes) {
+    const width = node.width ?? node.measured?.width ?? 0;
+    const height = node.height ?? node.measured?.height ?? 0;
+    if (width <= 0 || height <= 0) continue;
+    const { x, y } = node.position;
+    const withinX = point.x >= x - margin && point.x <= x + width + margin;
+    const withinY = point.y >= y - margin && point.y <= y + height + margin;
+    if (!withinX || !withinY) continue;
+    const edgeCandidates = [
+      { point: { x, y: y + height / 2 }, distance: Math.abs(point.x - x), inSpan: point.y >= y - margin && point.y <= y + height + margin },
+      { point: { x: x + width, y: y + height / 2 }, distance: Math.abs(point.x - (x + width)), inSpan: point.y >= y - margin && point.y <= y + height + margin },
+      { point: { x: x + width / 2, y }, distance: Math.abs(point.y - y), inSpan: point.x >= x - margin && point.x <= x + width + margin },
+      { point: { x: x + width / 2, y: y + height }, distance: Math.abs(point.y - (y + height)), inSpan: point.x >= x - margin && point.x <= x + width + margin },
+    ];
+    for (const edge of edgeCandidates) {
+      if (!edge.inSpan || edge.distance > margin) continue;
+      if (!best || edge.distance < best.distance) {
+        best = { point: edge.point, distance: edge.distance };
+      }
+    }
+  }
+  return best?.point ?? null;
 }
 
 function arrowHead(x: number, y: number, angle: number, size = 9): string {
@@ -71,7 +127,7 @@ function previewArrow(base: Arrow, point: { x: number; y: number }, mode: DragSt
   return { ...base, x2: point.x, y2: point.y };
 }
 
-export default function ArrowLayer({ arrows, selectedId, onSelect, onCommit, draft }: Props) {
+export default function ArrowLayer({ arrows, nodes, selectedId, onSelect, onCommit, draft }: Props) {
   const { screenToFlowPosition } = useReactFlow();
   const [drag, setDrag] = useState<DragState | null>(null);
   const [hover, setHover] = useState<string | null>(null);
@@ -81,7 +137,7 @@ export default function ArrowLayer({ arrows, selectedId, onSelect, onCommit, dra
     event.preventDefault();
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
     const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    setDrag({ arrow, mode, origin: point, moved: false, preview: { ...arrow } });
+    setDrag({ arrow, mode, origin: point, moved: false, preview: { ...arrow }, snap: null });
     onSelect(arrow.id);
   };
 
@@ -92,7 +148,18 @@ export default function ArrowLayer({ arrows, selectedId, onSelect, onCommit, dra
       drag.moved ||
       Math.abs(point.x - drag.origin.x) > 2 ||
       Math.abs(point.y - drag.origin.y) > 2;
-    setDrag({ ...drag, moved, preview: previewArrow(drag.arrow, point, drag.mode, drag.origin) });
+    let preview = previewArrow(drag.arrow, point, drag.mode, drag.origin);
+    let snap: { x: number; y: number } | null = null;
+    if (drag.mode === 'start' || drag.mode === 'end') {
+      const snapped = snapToNodeEdge(point, nodes);
+      if (snapped) {
+        snap = snapped;
+        preview = drag.mode === 'start'
+          ? { ...preview, x1: snapped.x, y1: snapped.y }
+          : { ...preview, x2: snapped.x, y2: snapped.y };
+      }
+    }
+    setDrag({ ...drag, moved, preview, snap });
   };
 
   const finishDrag = (event: React.PointerEvent) => {
@@ -205,6 +272,16 @@ export default function ArrowLayer({ arrows, selectedId, onSelect, onCommit, dra
               fill="#0067c0"
             />
           </g>
+        )}
+
+        {drag?.snap && (
+          <circle
+            cx={drag.snap.x}
+            cy={drag.snap.y}
+            r={5}
+            className="arrow-snap"
+            pointerEvents="none"
+          />
         )}
       </svg>
     </ViewportPortal>

@@ -16,8 +16,10 @@ referencias a rutas reales.
 - Tablero visual con tarjetas de carpetas y videos (React Flow).
 - Clic derecho en el tablero para crear **carpetas reales**, **notas adhesivas** y **flechas** de anotación.
 - Renombrar archivos y carpetas reales desde el tablero o el navegador.
-- Nueve colores pastel de fondo para tarjetas, notas e informes.
-- Flechas rectas y en curva S con selección, movimiento, redimensionado de extremos y color.
+- Flechas rectas, en curva S y cuadradas con selección, movimiento,
+  redimensionado de extremos, ajuste a bordes de tarjeta y color.
+- Paneles desplegables de color para flechas, tarjetas, notas e informes
+  (9 colores).
 - Temas claro y oscuro persistentes.
 - Las notas y flechas guardan texto, color y coordenadas en `state.json`.
 - Varios tableros por materia y navegador de carpetas integrado.

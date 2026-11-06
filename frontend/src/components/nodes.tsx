@@ -24,6 +24,7 @@ import {
   thumbUrl,
 } from '../api';
 import WorkflowResultNode from './WorkflowResultNode';
+import ColorPicker from './ColorPicker';
 import { PASTEL_COLORS } from '../colors';
 
 type CardNode = Node<{ card: Card }, 'folder' | 'video'>;
@@ -327,19 +328,16 @@ export const NoteNode = memo(function NoteNode({ data, selected }: NodeProps<Not
         spellCheck={false}
       />
       <div className="note-colors nodrag">
-        {noteColors.map((value) => (
-          <button
-            key={value}
-            className={`note-color ${color === value ? 'active' : ''}`}
-            style={{ background: value }}
-            title="Cambiar color"
-            onClick={(e) => {
-              e.stopPropagation();
-              setColor(value);
-              void updateNote(note.id, text, value);
-            }}
-          />
-        ))}
+        <ColorPicker
+          colors={noteColors}
+          value={color}
+          compact
+          label="Color"
+          onChange={(value) => {
+            setColor(value);
+            void updateNote(note.id, text, value);
+          }}
+        />
       </div>
     </div>
   );

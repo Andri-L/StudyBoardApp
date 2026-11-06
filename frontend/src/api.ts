@@ -53,9 +53,9 @@ export const api = {
     invoke<void>('MoveNote', boardId, noteId, x, y),
   removeNote: (boardId: string, noteId: string) =>
     invoke<AppState>('RemoveNote', boardId, noteId),
-  addArrow: (boardId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) =>
+  addArrow: (boardId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's' | 'square', color: string) =>
     invoke<AppState>('AddArrow', boardId, x1, y1, x2, y2, type, color),
-  updateArrow: (boardId: string, arrowId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) =>
+  updateArrow: (boardId: string, arrowId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's' | 'square', color: string) =>
     invoke<AppState>('UpdateArrow', boardId, arrowId, x1, y1, x2, y2, type, color),
   removeArrow: (boardId: string, arrowId: string) =>
     invoke<AppState>('RemoveArrow', boardId, arrowId),

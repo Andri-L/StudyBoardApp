@@ -131,7 +131,7 @@ export default function Welcome() {
 
       <footer className="welcome-footer">
         <span>Hecho para estudiar mejor, no para ver más videos.</span>
-        <span>v1.2.0 · Windows</span>
+        <span>v1.2.1 · Windows</span>
       </footer>
     </div>
   );

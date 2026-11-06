@@ -2,6 +2,27 @@
 
 [English](CHANGELOG.md) · [Español](CHANGELOG.es.md)
 
+## v1.2.1 — 2026-11-05
+
+Correcciones de flechas y selectores de color.
+
+### Añadido
+
+- Tipo de flecha **cuadrada/escalonada**, además de recta y curva S.
+- Los extremos de las flechas se ajustan al centro del borde más cercano de una
+  tarjeta al arrastrarlos cerca, con un indicador visual.
+
+### Cambiado
+
+- Todas las paletas de color son ahora paneles desplegables compactos en vez de
+  filas de muestras: color de flecha, fondo de tarjeta/informe y color de nota.
+
+### Corregido
+
+- El nombre del tablero activo se ve correctamente en modo oscuro.
+- Los desplegables de color se renderizan fuera de las tarjetas, así que no los
+  recortan las notas, menús o informes.
+
 ## v1.2.0 — 2026-11-05
 
 Interacción del workspace, edición de flechas, modo oscuro y nuevos workflows.

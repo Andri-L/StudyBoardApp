@@ -35,7 +35,7 @@ export interface Arrow {
   y1: number;
   x2: number;
   y2: number;
-  type?: 'straight' | 's';
+  type?: 'straight' | 's' | 'square';
   color: string;
   createdAt: number;
 }

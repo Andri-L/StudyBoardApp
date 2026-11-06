@@ -45,8 +45,8 @@ interface StudyBoardStore {
   updateNote: (noteId: string, text: string, color?: string) => Promise<void>;
   moveNote: (noteId: string, x: number, y: number) => void;
   removeNote: (noteId: string) => Promise<void>;
-  addArrow: (x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) => Promise<void>;
-  updateArrow: (arrowId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) => Promise<void>;
+  addArrow: (x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's' | 'square', color: string) => Promise<void>;
+  updateArrow: (arrowId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's' | 'square', color: string) => Promise<void>;
   removeArrow: (arrowId: string) => Promise<void>;
   setItemColor: (itemId: string, color: string) => Promise<void>;
   renamePath: (path: string, newName: string) => Promise<boolean>;

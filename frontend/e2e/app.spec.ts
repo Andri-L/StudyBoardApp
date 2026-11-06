@@ -252,6 +252,9 @@ test('switches to dark mode and persists the preference', async ({ page }) => {
   expect(await page.evaluate(() => localStorage.getItem('studyboard.theme'))).toBe('dark');
   expect(await page.locator('.board-toolbar').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(32, 32, 32)');
   expect(await page.locator('.video-node').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(32, 32, 32)');
+  const activeName = page.locator('.board-row.active .board-name');
+  await expect(activeName).toBeVisible();
+  expect(await activeName.evaluate((el) => getComputedStyle(el).color)).not.toBe('rgb(0, 62, 115)');
 });
 
 test('sanitizes model-generated links and images', async ({ page }) => {
@@ -280,7 +283,8 @@ test('renames a real item from the right-click menu', async ({ page }) => {
 
 test('changes a card background from the right-click palette', async ({ page }) => {
   await page.locator('.video-node').click({ button: 'right' });
-  await page.locator('.node-menu-palette .color-swatch').first().click();
+  await page.locator('.node-menu-palette .color-picker-trigger').click();
+  await page.locator('.color-picker-panel .color-swatch').first().click();
   await expect.poll(async () =>
     page.evaluate(() => (window as any).__calls.some((call: any) => call.name === 'SetItemColor')),
   ).toBe(true);
@@ -293,6 +297,10 @@ test('selects an arrow and changes its type', async ({ page }) => {
   await page.getByRole('button', { name: /Curva S/ }).click();
   await expect.poll(async () =>
     page.evaluate(() => (window as any).__calls.some((call: any) => call.name === 'UpdateArrow' && call.args[6] === 's')),
+  ).toBe(true);
+  await page.getByRole('button', { name: /Cuadrada/ }).click();
+  await expect.poll(async () =>
+    page.evaluate(() => (window as any).__calls.some((call: any) => call.name === 'UpdateArrow' && call.args[6] === 'square')),
   ).toBe(true);
 });
 
@@ -312,6 +320,25 @@ test('drags an arrow endpoint and persists the geometry', async ({ page }) => {
       return Boolean(call && (call.args[2] !== 520 || call.args[3] !== 560));
     }),
   ).toBe(true);
+});
+
+test('snaps an arrow endpoint to the center of a card edge', async ({ page }) => {
+  await page.locator('.board-arrow').first().locator('path').first().click({ force: true });
+  const card = await page.locator('.video-node').boundingBox();
+  const handle = await page.locator('.arrow-handle').first().boundingBox();
+  expect(card).not.toBeNull();
+  expect(handle).not.toBeNull();
+  if (!card || !handle) return;
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(card.x + card.width + 9, card.y + card.height / 2 + 12, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () =>
+    page.evaluate(() => {
+      const call = (window as any).__calls.filter((item: any) => item.name === 'UpdateArrow').at(-1);
+      return call ? { x: Math.round(call.args[2]), y: Math.round(call.args[3]) } : null;
+    }),
+  ).toEqual({ x: 384, y: 220 });
 });
 
 test('queues a report translation from the result card', async ({ page }) => {

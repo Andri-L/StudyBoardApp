@@ -577,7 +577,7 @@ func containsString(values []string, value string) bool {
 }
 
 func validArrowType(value string) bool {
-	return value == "straight" || value == "s"
+	return value == "straight" || value == "s" || value == "square"
 }
 
 // RemoveArrow deletes an arrow annotation.

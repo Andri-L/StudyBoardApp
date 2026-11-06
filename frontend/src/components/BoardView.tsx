@@ -13,6 +13,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import {
   Activity,
+  CornerDownRight,
   Cpu,
   FolderOpen,
   FolderPlus,
@@ -21,7 +22,6 @@ import {
   MousePointer2,
   MoveRight,
   MoveUpRight,
-  Palette,
   Pencil,
   Plus,
   StickyNote,
@@ -34,6 +34,7 @@ import { compactPath } from '../api';
 import { ARROW_COLORS, PASTEL_COLORS } from '../colors';
 import { nodeTypes } from './nodes';
 import ArrowLayer from './ArrowLayer';
+import ColorPicker from './ColorPicker';
 import FolderDialog from './FolderDialog';
 import QuickSettings from './QuickSettings';
 import RenameDialog from './RenameDialog';
@@ -94,6 +95,7 @@ interface NodeMenuState {
   y: number;
   itemId: string;
   itemName: string;
+  color?: string;
   renamePath?: string;
 }
 
@@ -372,6 +374,7 @@ function BoardInner() {
               y: event.clientY,
               itemId,
               itemName: itemName || 'Elemento',
+              color: card?.color || note?.color || result?.color,
               renamePath: card?.path,
             });
             setSelectedArrowId(null);
@@ -409,6 +412,7 @@ function BoardInner() {
         >
           <ArrowLayer
             arrows={board.arrows ?? []}
+            nodes={nodes}
             selectedId={selectedArrowId}
             onSelect={(id) => {
               setSelectedArrowId(id);
@@ -474,25 +478,37 @@ function BoardInner() {
               <Activity size={14} />
               Curva S
             </button>
+            <button
+              className={`selection-segment ${selectedArrow.type === 'square' ? 'active' : ''}`}
+              title="Flecha escalonada"
+              onClick={() => void updateArrow(
+                selectedArrow.id,
+                selectedArrow.x1,
+                selectedArrow.y1,
+                selectedArrow.x2,
+                selectedArrow.y2,
+                'square',
+                selectedArrow.color || ARROW_COLORS[0],
+              )}
+            >
+              <CornerDownRight size={14} />
+              Cuadrada
+            </button>
             <span className="selection-divider" />
-            <Palette size={13} className="selection-icon" />
-            {ARROW_COLORS.map((color) => (
-              <button
-                key={color}
-                className={`color-swatch ${selectedArrow.color === color ? 'active' : ''}`}
-                style={{ background: color }}
-                title="Color de flecha"
-                onClick={() => void updateArrow(
-                  selectedArrow.id,
-                  selectedArrow.x1,
-                  selectedArrow.y1,
-                  selectedArrow.x2,
-                  selectedArrow.y2,
-                  selectedArrow.type || 'straight',
-                  color,
-                )}
-              />
-            ))}
+            <ColorPicker
+              colors={ARROW_COLORS}
+              value={selectedArrow.color || ARROW_COLORS[0]}
+              label="Color"
+              onChange={(color) => void updateArrow(
+                selectedArrow.id,
+                selectedArrow.x1,
+                selectedArrow.y1,
+                selectedArrow.x2,
+                selectedArrow.y2,
+                selectedArrow.type || 'straight',
+                color,
+              )}
+            />
             <button
               className="icon-btn tiny selection-delete"
               title="Eliminar flecha"
@@ -508,17 +524,13 @@ function BoardInner() {
 
         {selectedCard && (
           <div className="selection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
-            <Palette size={13} className="selection-icon" />
-            <span className="selection-label">Fondo</span>
-            {PASTEL_COLORS.map((color) => (
-              <button
-                key={color}
-                className={`color-swatch pastel ${selectedCard.color === color ? 'active' : ''}`}
-                style={{ background: color }}
-                title="Color de fondo"
-                onClick={() => void setItemColor(selectedCard.id, color)}
-              />
-            ))}
+            <span className="selection-label">Tarjeta</span>
+            <ColorPicker
+              colors={PASTEL_COLORS}
+              value={selectedCard.color || '#ffffff'}
+              label="Fondo"
+              onChange={(color) => void setItemColor(selectedCard.id, color)}
+            />
           </div>
         )}
 
@@ -545,21 +557,15 @@ function BoardInner() {
               </button>
             )}
             <div className="node-menu-palette">
-              <span>Fondo</span>
-              <div>
-                {PASTEL_COLORS.map((color) => (
-                  <button
-                    key={color}
-                    className="color-swatch pastel"
-                    style={{ background: color }}
-                    title="Color de fondo"
-                    onClick={() => {
-                      void setItemColor(nodeMenu.itemId, color);
-                      setNodeMenu(null);
-                    }}
-                  />
-                ))}
-              </div>
+              <ColorPicker
+                colors={PASTEL_COLORS}
+                value={nodeMenu.color || '#ffffff'}
+                label="Fondo"
+                onChange={(color) => {
+                  void setItemColor(nodeMenu.itemId, color);
+                  setNodeMenu(null);
+                }}
+              />
             </div>
           </div>
         )}

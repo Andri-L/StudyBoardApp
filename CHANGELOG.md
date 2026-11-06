@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.2.1 — 2026-11-05
+
+Arrow and color-picker fixes.
+
+### Added
+
+- **Square/stepped arrow** type in addition to straight and S-curve.
+- Arrow endpoints snap to the center of the nearest card edge when dragged near
+  it, with a visual snap indicator.
+
+### Changed
+
+- All color palettes are now compact dropdown panels instead of inline swatch
+  rows: arrow color, card/report background and note color.
+
+### Fixed
+
+- The active board name is readable in dark mode.
+- Color dropdowns are rendered outside card bounds, so they are not clipped by
+  notes, menus or result cards.
+
 ## v1.2.0 — 2026-11-05
 
 Workspace interactions, arrow editing, dark mode and new study workflows.

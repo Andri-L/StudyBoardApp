@@ -22,9 +22,9 @@ references to real paths.
 - Right-click on the board to create **real folders**, **sticky notes**, and
   freeform **arrows**.
 - Rename real files and folders from the board or folder browser.
-- Nine pastel background colors for cards, notes and reports.
-- Straight and S-curve arrows with selection, movement, endpoint resizing and
-  color controls.
+- Straight, S-curve and square arrows with selection, movement, endpoint
+  resizing, snapping to card edges and color controls.
+- Dropdown color panels for arrows, cards, notes and reports (9 colors).
 - Light and dark themes, persisted across launches.
 - Notes and arrows persist text, color, and coordinates in the board JSON.
 - Multiple boards per subject and an integrated folder browser.
