@@ -11,6 +11,7 @@ import {
   FileText,
   Loader2,
   Play,
+  RefreshCw,
   Search,
   Sparkles,
   Workflow,
@@ -50,6 +51,8 @@ export default function ReviewView({ path }: Props) {
   const [currentTime, setCurrentTime] = useState(0);
   const [follow, setFollow] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [playbackPath, setPlaybackPath] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
   const [frame, setFrame] = useState<{ src: string; time: number } | null>(null);
   const [capturing, setCapturing] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -68,6 +71,8 @@ export default function ReviewView({ path }: Props) {
     setLoading(true);
     setError('');
     setVideoError(false);
+    setPlaybackPath(null);
+    setConverting(false);
     setFrame(null);
     setQuery('');
     Promise.all([
@@ -153,6 +158,24 @@ export default function ReviewView({ path }: Props) {
     }
   };
 
+  const convertForPlayback = async () => {
+    setConverting(true);
+    try {
+      const converted = await api.preparePlayback(path);
+      if (converted === path) {
+        showToast('Este formato ya debería reproducirse; si falla, ábrelo con Windows.', 'info');
+      } else {
+        setPlaybackPath(converted);
+        setVideoError(false);
+        showToast('Video convertido para reproducir dentro de la app', 'success');
+      }
+    } catch (err) {
+      showToast(friendlyError(err), 'error');
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const ready = Boolean(state?.engine.ready);
   const progress = job?.progress ?? 0;
   const status = job?.status ?? info?.transcript.status ?? (transcript ? 'done' : 'none');
@@ -212,7 +235,7 @@ export default function ReviewView({ path }: Props) {
           <div className="video-stage">
             <video
               ref={videoRef}
-              src={state?.mediaBase ? mediaUrl(state.mediaBase, path) : undefined}
+              src={state?.mediaBase ? mediaUrl(state.mediaBase, playbackPath || path) : undefined}
               controls
               preload="metadata"
               onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
@@ -222,11 +245,31 @@ export default function ReviewView({ path }: Props) {
               <div className="video-error">
                 <AlertTriangle size={22} />
                 <strong>Este formato no se reproduce dentro de StudyBoard App</strong>
-                <p>Prueba con un MP4, o ábrelo con tu reproductor de Windows.</p>
-                <button className="btn btn-primary btn-sm" onClick={() => void api.openExternal(path)}>
-                  <Play size={14} />
-                  Abrir con Windows
-                </button>
+                <p>
+                  Puedes convertirlo a MP4 dentro de la app o abrirlo con tu reproductor
+                  de Windows. La conversión puede tardar unos minutos.
+                </p>
+                <div className="video-error-actions">
+                  {!playbackPath && (
+                    <button
+                      className="btn btn-primary btn-sm"
+                      disabled={converting}
+                      onClick={() => void convertForPlayback()}
+                    >
+                      {converting ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+                      {converting ? 'Convirtiendo…' : 'Convertir a MP4'}
+                    </button>
+                  )}
+                  <button className="btn btn-ghost btn-sm" onClick={() => void api.openExternal(path)}>
+                    <Play size={14} />
+                    Abrir con Windows
+                  </button>
+                </div>
+                {playbackPath && (
+                  <span className="video-error-note">
+                    Conversión lista. Si el video sigue sin reproducirse, usa el reproductor externo.
+                  </span>
+                )}
               </div>
             )}
           </div>

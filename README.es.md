@@ -15,19 +15,25 @@ referencias a rutas reales.
 
 - Tablero visual con tarjetas de carpetas y videos (React Flow).
 - Clic derecho en el tablero para crear **carpetas reales**, **notas adhesivas** y **flechas** de anotación.
+- Renombrar archivos y carpetas reales desde el tablero o el navegador.
+- Nueve colores pastel de fondo para tarjetas, notas e informes.
+- Flechas rectas y en curva S con selección, movimiento, redimensionado de extremos y color.
+- Temas claro y oscuro persistentes.
 - Las notas y flechas guardan texto, color y coordenadas en `state.json`.
 - Varios tableros por materia y navegador de carpetas integrado.
 - Transcripción local con Whisper.cpp y GPU AMD mediante Vulkan.
 - Timestamps por segmento y por palabra en el JSON interno.
 - Visor de video sincronizado: clic en un timestamp salta al momento exacto.
+- Conversión a MP4 bajo demanda para formatos que WebView2 no reproduce.
 - Búsqueda dentro de la transcripción, modo “Seguir” y captura de frames.
 - Cola de transcripciones con progreso, cancelación y reintento.
 - Exportación a Markdown con timestamps y SRT.
 - Descarga y selección de modelos desde la interfaz, sin salir de la app.
+- Verificación SHA256 de los modelos descargados.
 - Selector de idioma: Español, English o detección automática.
-- **Workflows automáticos de OpenCode** para extraer tareas y preparar parciales.
-- Los informes aparecen como notas adhesivas junto al video y se guardan como
-  Markdown junto a la grabación.
+- **Workflows automáticos de OpenCode** para extraer tareas, preparar parciales, crear planes de estudio y extraer fechas.
+- Traducción de informes entre español e inglés.
+- Los informes aparecen como notas adhesivas junto al video y se guardan como Markdown junto a la grabación.
 - Selector para ejecutar varios workflows sobre varias clases a la vez.
 - Servidor MCP para consultar las clases desde OpenCode sin abrir la app.
 - La ventana no se queda siempre encima.
@@ -109,6 +115,20 @@ Si `wails` no está en el PATH:
 & "$env:USERPROFILE\go\bin\wails.exe" dev
 ```
 
+En desarrollo, indica explícitamente el motor del repositorio:
+
+```powershell
+$env:STUDYBOARD_ENGINE_DIR = (Get-Location).Path
+```
+
+Las pruebas E2E del frontend usan un backend Wails simulado:
+
+```powershell
+cd frontend
+npm run build
+npm run test:e2e
+```
+
 ## Integración con OpenCode TUI (MCP)
 
 El servidor MCP lee el workspace y las transcripciones guardadas. Funciona aunque
@@ -160,8 +180,9 @@ OpenCode las prefija con el nombre del servidor:
 
 También expone recursos (`studyboard://overview`, `videos`, `transcripts`,
 `workflow-results`) y los prompts `/studyboard:resumir-clase`,
-`/studyboard:buscar-clases`, `/studyboard:extraer-tareas` y
-`/studyboard:puntos-parciales`.
+`/studyboard:buscar-clases`, `/studyboard:extraer-tareas`,
+`/studyboard:puntos-parciales`, `/studyboard:plan-de-estudio` y
+`/studyboard:fechas-calendario`.
 
 Ejemplos:
 
@@ -178,16 +199,20 @@ StudyBoard puede ejecutar OpenCode automáticamente sobre una clase transcrita.
 La app lanza `opencode run` con una sesión nueva y reutiliza la autenticación que
 ya configuraste en OpenCode; no hay un login aparte dentro de StudyBoard.
 
-Incluye dos workflows:
+Incluye cuatro workflows:
 
-- **Extracción de tareas** (`task-extraction`): actividades explícitas y
-  probables, requisitos, preferencias del profesor, plazos, canal de entrega,
-  modo individual/grupal, pistas de rúbrica, evidencia con timestamps y dudas
-  abiertas.
-- **Puntos para parciales** (`exam-focus`): información explícita del parcial
-  separada del énfasis del profesor, temas excluidos, formatos de pregunta, plan
-  de estudio priorizado, preguntas de práctica y advertencias. Nunca inventa
-  datos del parcial.
+- **Extracción de tareas** (`task-extraction`): actividades explícitas,
+  requisitos, preferencias del profesor, plazos, canal de entrega, modo
+  individual/grupal, pistas de rúbrica, evidencia y dudas abiertas. Si no hay
+  tareas, devuelve una respuesta corta.
+- **Puntos para parciales** (`exam-focus`): solo información explícita del
+  parcial. Si el profesor no mencionó temas, formato, fecha ni criterios,
+  devuelve una respuesta corta de “sin información explícita” en vez de un plan
+  largo.
+- **Plan de estudio** (`study-plan`): plan breve y priorizado basado en el
+  contenido real de la clase, con práctica y evidencia.
+- **Fechas para calendario** (`calendar-dates`): exámenes, entregas y eventos
+  con fecha, además de un archivo `.ics` para importar al calendario.
 
 Para ejecutar uno:
 
@@ -197,10 +222,12 @@ Para ejecutar uno:
 3. Elige el idioma de salida (Español o English).
 4. Pulsa **Ejecutar**.
 
-Cada resultado se coloca junto al video de origen como una tarjeta y se guarda
-como Markdown junto al video (`<video> - tareas.md` o `<video> - parcial.md`).
-Puedes arrastrar la tarjeta, copiar su contenido, mostrar el archivo en Explorer
-o quitarla del tablero sin borrar el Markdown.
+Cada resultado se coloca en el tablero que contiene el video de origen como una
+tarjeta y se guarda como Markdown junto al video (`<video> - tareas.md`,
+`<video> - parcial.md`, `<video> - plan.md` o `<video> - fechas.md`). Los
+workflows de calendario también escriben un archivo `.ics`. Puedes arrastrar la
+tarjeta, copiar su contenido, traducirlo a español o inglés, mostrar el archivo
+en Explorer o quitarla del tablero sin borrar el Markdown.
 
 Las plantillas de prompt están en inglés para mayor fiabilidad del modelo. El
 informe final se escribe en el idioma elegido por el usuario. Los workflows
@@ -231,8 +258,9 @@ Las descargas se guardan en:
 %LOCALAPPDATA%\StudyBoard App\models\
 ```
 
-No se suben modelos al repositorio. Los binarios de Whisper/FFmpeg también se
-instalan localmente con `scripts/setup-engine.ps1`.
+No se suben modelos al repositorio. Las descargas se verifican contra el hash
+SHA256 del catálogo antes de poder seleccionarlas. Los binarios de
+Whisper/FFmpeg también se instalan localmente con `scripts/setup-engine.ps1`.
 
 ## Datos de la app
 
@@ -267,6 +295,7 @@ callback de Whisper y de `-progress` de FFmpeg.
 StudyBoardApp/
 ├── app.go              # bindings, estado, exportaciones
 ├── security.go         # contención de rutas, escritura atómica, validación de URL
+├── playback.go         # conversión a MP4 para contenedores no soportados
 ├── workflows.go        # definiciones, prompts y resultados de workflows
 ├── workflow_jobs.go    # cola y ejecución de OpenCode
 ├── workflows/          # workflows declarativos y plantillas de prompt
@@ -305,8 +334,12 @@ Los valores dependen del video, la GPU, el modelo y las aplicaciones abiertas.
   guarda timestamps por palabra, pendiente de explotar visualmente.
 - No hay diarización de hablantes.
 - Los workflows requieren el CLI de OpenCode instalado y autenticado.
-- MKV/AVI pueden no reproducirse dentro de WebView2; se ofrece abrirlo con el
-  reproductor de Windows.
+- Convertir un video no soportado a MP4 puede tardar varios minutos.
+- La interfaz está en español; la internacionalización está planificada.
+- Las fechas del calendario las extrae el modelo. Revisa el `.ics` antes de
+  importarlo.
+- MKV/AVI pueden no reproducirse dentro de WebView2; se ofrece reproductor
+  externo y conversión a MP4.
 - La búsqueda global está disponible vía MCP; la UI todavía no tiene un buscador
   entre todas las clases.
 - El servidor MCP es de solo lectura: no inicia transcripciones ni workflows.
@@ -317,7 +350,7 @@ Los valores dependen del video, la GPU, el modelo y las aplicaciones abiertas.
 2. Diarización profesor/alumnos.
 3. Búsqueda global dentro de la UI.
 4. Procesamiento por lotes de carpetas completas.
-5. Más workflows y una opción de traducción de informes.
+5. Internacionalización de la UI y workflows definidos por el usuario.
 
 Referencia técnica para alineación y diarización:
 [jpgomezv/video-transcriber](https://github.com/jpgomezv/video-transcriber).
@@ -345,7 +378,8 @@ como datos no confiables:
 - Los informes omiten HTML crudo, bloquean imágenes remotas y solo abren enlaces
   en el navegador del sistema tras validar `http`/`https` y rechazar hosts
   locales.
-- Las descargas de modelos exigen HTTPS y se verifican por tamaño y formato GGML.
+- Las descargas de modelos exigen HTTPS, verifican el SHA256 del catálogo y el
+  formato GGML.
 - El estado y los informes se escriben de forma atómica con permisos de usuario.
 - `npm audit` y `govulncheck` no reportan vulnerabilidades conocidas.
 

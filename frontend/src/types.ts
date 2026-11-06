@@ -10,6 +10,7 @@ export interface Card {
   path: string;
   label: string;
   dateLabel?: string;
+  color?: string;
   x: number;
   y: number;
   width: number;
@@ -34,6 +35,7 @@ export interface Arrow {
   y1: number;
   x2: number;
   y2: number;
+  type?: 'straight' | 's';
   color: string;
   createdAt: number;
 }
@@ -64,6 +66,9 @@ export interface WorkflowJob {
   videoPath: string;
   videoName: string;
   outputLanguage: string;
+  kind?: 'workflow' | 'translation';
+  sourceResultId?: string;
+  targetLanguage?: string;
   status: 'queued' | 'running' | 'done' | 'error' | 'canceled';
   stage: string;
   error: string;
@@ -82,6 +87,10 @@ export interface WorkflowResult {
   className: string;
   content: string;
   filePath: string;
+  attachmentPath?: string;
+  language?: string;
+  sourceResultId?: string;
+  color?: string;
   sessionId: string;
   x: number;
   y: number;

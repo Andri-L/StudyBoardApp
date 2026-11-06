@@ -53,15 +53,23 @@ export const api = {
     invoke<void>('MoveNote', boardId, noteId, x, y),
   removeNote: (boardId: string, noteId: string) =>
     invoke<AppState>('RemoveNote', boardId, noteId),
-  addArrow: (boardId: string, x1: number, y1: number, x2: number, y2: number) =>
-    invoke<AppState>('AddArrow', boardId, x1, y1, x2, y2),
+  addArrow: (boardId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) =>
+    invoke<AppState>('AddArrow', boardId, x1, y1, x2, y2, type, color),
+  updateArrow: (boardId: string, arrowId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) =>
+    invoke<AppState>('UpdateArrow', boardId, arrowId, x1, y1, x2, y2, type, color),
   removeArrow: (boardId: string, arrowId: string) =>
     invoke<AppState>('RemoveArrow', boardId, arrowId),
+  setItemColor: (boardId: string, itemId: string, color: string) =>
+    invoke<AppState>('SetItemColor', boardId, itemId, color),
+  renamePath: (path: string, newName: string) =>
+    invoke<AppState>('RenamePath', path, newName),
   getWorkflows: () => invoke<WorkflowInfo[]>('GetWorkflows'),
   getWorkflowVideos: () => invoke<WorkflowVideo[]>('GetWorkflowVideos'),
   startWorkflow: (boardId: string, workflowId: string, videoPath: string, language: 'es' | 'en') =>
     invoke<WorkflowJob>('StartWorkflow', boardId, workflowId, videoPath, language),
   getWorkflowJobs: () => invoke<WorkflowJob[]>('GetWorkflowJobs'),
+  startTranslation: (boardId: string, resultId: string, targetLanguage: 'es' | 'en') =>
+    invoke<WorkflowJob>('StartTranslation', boardId, resultId, targetLanguage),
   cancelWorkflow: (id: string) => invoke<void>('CancelWorkflow', id),
   moveWorkflowResult: (boardId: string, resultId: string, x: number, y: number) =>
     invoke<void>('MoveWorkflowResult', boardId, resultId, x, y),
@@ -91,6 +99,8 @@ export const api = {
   openUrl: (url: string) => invoke<void>('OpenURL', url),
   captureFrame: (path: string, second: number) =>
     invoke<string>('CaptureFrame', path, second),
+  preparePlayback: (path: string) =>
+    invoke<string>('PreparePlayback', path),
   probeMedia: (path: string) => invoke<ClipInfo>('ProbeMedia', path),
 };
 

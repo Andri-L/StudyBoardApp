@@ -29,6 +29,7 @@ interface StudyBoardStore {
   workflowDialogOpen: boolean;
   workflowPreselect: string[];
   workflowPanelOpen: boolean;
+  theme: 'light' | 'dark';
 
   init: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -44,8 +45,11 @@ interface StudyBoardStore {
   updateNote: (noteId: string, text: string, color?: string) => Promise<void>;
   moveNote: (noteId: string, x: number, y: number) => void;
   removeNote: (noteId: string) => Promise<void>;
-  addArrow: (x1: number, y1: number, x2: number, y2: number) => Promise<void>;
+  addArrow: (x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) => Promise<void>;
+  updateArrow: (arrowId: string, x1: number, y1: number, x2: number, y2: number, type: 'straight' | 's', color: string) => Promise<void>;
   removeArrow: (arrowId: string) => Promise<void>;
+  setItemColor: (itemId: string, color: string) => Promise<void>;
+  renamePath: (path: string, newName: string) => Promise<boolean>;
   moveCard: (boardId: string, cardId: string, x: number, y: number) => void;
   removeCard: (cardId: string) => Promise<void>;
   startTranscription: (path: string, cardId: string) => Promise<void>;
@@ -69,11 +73,13 @@ interface StudyBoardStore {
   closeWorkflowDialog: () => void;
   refreshWorkflowData: () => Promise<void>;
   startWorkflows: (workflowIds: string[], videoPaths: string[], language: 'es' | 'en') => Promise<void>;
+  startTranslation: (resultId: string, targetLanguage: 'es' | 'en') => Promise<void>;
   workflowJobUpdated: (job: WorkflowJob) => void;
   cancelWorkflow: (id: string) => Promise<void>;
   moveWorkflowResult: (resultId: string, x: number, y: number) => void;
   removeWorkflowResult: (resultId: string) => Promise<void>;
   setWorkflowPanelOpen: (open: boolean) => void;
+  toggleTheme: () => void;
   showToast: (message: string, kind?: ToastKind) => void;
   dismissToast: () => void;
 }
@@ -82,6 +88,18 @@ let toastTimer: number | undefined;
 
 function activeBoardId(state: AppState | null): string {
   return state?.activeBoardId ?? '';
+}
+
+const THEME_KEY = 'studyboard.theme';
+
+function initialTheme(): 'light' | 'dark' {
+  try {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
 }
 
 export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
@@ -103,6 +121,7 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
   workflowDialogOpen: false,
   workflowPreselect: [],
   workflowPanelOpen: false,
+  theme: initialTheme(),
 
   init: async () => {
     set({ loading: true });
@@ -252,14 +271,60 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
     }
   },
 
-  addArrow: async (x1, y1, x2, y2) => {
+  addArrow: async (x1, y1, x2, y2, type, color) => {
     const boardId = activeBoardId(get().state);
     if (!boardId) return;
     try {
-      const state = await api.addArrow(boardId, x1, y1, x2, y2);
+      const state = await api.addArrow(boardId, x1, y1, x2, y2, type, color);
       set({ state });
     } catch (err) {
       get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  updateArrow: async (arrowId, x1, y1, x2, y2, type, color) => {
+    const boardId = activeBoardId(get().state);
+    if (!boardId) return;
+    try {
+      const state = await api.updateArrow(boardId, arrowId, x1, y1, x2, y2, type, color);
+      set({ state });
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  setItemColor: async (itemId, color) => {
+    const boardId = activeBoardId(get().state);
+    if (!boardId) return;
+    try {
+      const state = await api.setItemColor(boardId, itemId, color);
+      set({ state });
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
+  renamePath: async (path, newName) => {
+    try {
+      const state = await api.renamePath(path, newName);
+      const old = path.toLowerCase();
+      const reviewPath = get().reviewPath;
+      set({
+        state,
+        reviewPath:
+          reviewPath && (reviewPath.toLowerCase() === old || reviewPath.toLowerCase().startsWith(old + '\\'))
+            ? null
+            : reviewPath,
+        view:
+          reviewPath && (reviewPath.toLowerCase() === old || reviewPath.toLowerCase().startsWith(old + '\\'))
+            ? 'board'
+            : get().view,
+      });
+      get().showToast('Elemento renombrado en el disco', 'success');
+      return true;
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+      return false;
     }
   },
 
@@ -469,6 +534,21 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
     }
   },
 
+  startTranslation: async (resultId, targetLanguage) => {
+    const boardId = activeBoardId(get().state);
+    if (!boardId) return;
+    try {
+      const job = await api.startTranslation(boardId, resultId, targetLanguage);
+      set((s) => ({
+        workflowJobs: [job, ...s.workflowJobs.filter((j) => j.id !== job.id)],
+        workflowPanelOpen: true,
+      }));
+      get().showToast('Traducción añadida a la cola', 'info');
+    } catch (err) {
+      get().showToast(friendlyError(err), 'error');
+    }
+  },
+
   workflowJobUpdated: (job) => {
     const previous = get().workflowJobs.find((j) => j.id === job.id);
     set((s) => ({
@@ -513,6 +593,16 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
   },
 
   setWorkflowPanelOpen: (open) => set({ workflowPanelOpen: open }),
+
+  toggleTheme: () => {
+    const next = get().theme === 'dark' ? 'light' : 'dark';
+    try {
+      localStorage.setItem(THEME_KEY, next);
+    } catch {
+      // localStorage may be unavailable in restricted environments.
+    }
+    set({ theme: next });
+  },
 
   showToast: (message, kind = 'info') => {
     if (toastTimer) window.clearTimeout(toastTimer);

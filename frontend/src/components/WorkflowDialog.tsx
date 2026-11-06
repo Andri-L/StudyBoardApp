@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  BookOpen,
+  CalendarDays,
   Check,
   ClipboardList,
   Languages,
@@ -97,7 +99,14 @@ export default function WorkflowDialog() {
             <div className="workflow-options">
               {workflows.map((workflow) => {
                 const checked = selectedWorkflows.has(workflow.id);
-                const Icon = workflow.id === 'exam-focus' ? Target : ClipboardList;
+                const Icon =
+                  workflow.id === 'exam-focus'
+                    ? Target
+                    : workflow.id === 'study-plan'
+                      ? BookOpen
+                      : workflow.id === 'calendar-dates'
+                        ? CalendarDays
+                        : ClipboardList;
                 return (
                   <button
                     key={workflow.id}

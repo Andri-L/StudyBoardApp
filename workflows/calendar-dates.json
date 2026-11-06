@@ -1,0 +1,9 @@
+{
+  "id": "calendar-dates",
+  "name": "Fechas para calendario",
+  "shortName": "Fechas",
+  "description": "Extrae exámenes, entregas y eventos con fecha, y genera un archivo .ics.",
+  "icon": "calendar",
+  "promptFile": "prompts/calendar-dates.md",
+  "outputFile": "fechas"
+}

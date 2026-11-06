@@ -6,6 +6,7 @@ import {
   Folder,
   FolderOpen,
   Loader2,
+  Pencil,
   Play,
   Plus,
   X,
@@ -13,6 +14,7 @@ import {
 import { boardById, useStudyBoard } from '../store';
 import { api, compactPath, fileName, friendlyError, nextCardPosition } from '../api';
 import type { DirEntry } from '../types';
+import RenameDialog from './RenameDialog';
 
 export default function FolderDrawer() {
   const folderPath = useStudyBoard((s) => s.folderPath);
@@ -29,6 +31,7 @@ export default function FolderDrawer() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tick, setTick] = useState(0);
+  const [rename, setRename] = useState<{ path: string; name: string } | null>(null);
 
   useEffect(() => {
     if (!folderPath || !state?.workspace) return;
@@ -149,6 +152,13 @@ export default function FolderDrawer() {
                       <ExternalLink size={13} />
                     </button>
                   )}
+                  <button
+                    className="icon-btn tiny"
+                    title="Renombrar en el disco"
+                    onClick={() => setRename({ path: entry.path, name: entry.name })}
+                  >
+                    <Pencil size={13} />
+                  </button>
                   <button className="icon-btn tiny" title="Añadir al tablero" onClick={() => add(entry)}>
                     <Plus size={14} />
                   </button>
@@ -163,6 +173,16 @@ export default function FolderDrawer() {
           {entries.some((e) => e.isDir) && <span>Explora las subcarpetas dentro del panel</span>}
         </footer>
       </section>
+      {rename && (
+        <RenameDialog
+          path={rename.path}
+          initialName={rename.name}
+          onClose={() => {
+            setRename(null);
+            setTick((value) => value + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

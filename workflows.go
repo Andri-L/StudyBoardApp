@@ -190,6 +190,52 @@ func workflowResultPath(videoPath, outputFile string) string {
 	return filepath.Join(filepath.Dir(videoPath), base+" - "+safe+".md")
 }
 
+func workflowTranslationPath(videoPath, outputFile, language string) string {
+	base := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+	safe := outputFile
+	if safe == "" {
+		safe = "workflow"
+	}
+	lang := normalizeWorkflowLanguage(language)
+	return filepath.Join(filepath.Dir(videoPath), base+" - "+safe+"."+lang+".md")
+}
+
+func workflowAttachmentPath(videoPath, suffix string) string {
+	base := strings.TrimSuffix(filepath.Base(videoPath), filepath.Ext(videoPath))
+	safe := suffix
+	if safe == "" {
+		safe = "fechas"
+	}
+	return filepath.Join(filepath.Dir(videoPath), base+" - "+safe+".ics")
+}
+
+// extractICSBlock removes a fenced ICS block from a Markdown report and returns
+// the cleaned report plus the calendar data. If the block is not a complete
+// VCALENDAR it is left untouched.
+func extractICSBlock(content string) (string, string) {
+	lower := strings.ToLower(content)
+	start := strings.Index(lower, "```ics")
+	if start < 0 {
+		return content, ""
+	}
+	lineEnd := strings.Index(content[start:], "\n")
+	if lineEnd < 0 {
+		return content, ""
+	}
+	bodyStart := start + lineEnd + 1
+	end := strings.Index(content[bodyStart:], "```")
+	if end < 0 {
+		return content, ""
+	}
+	ics := strings.TrimSpace(content[bodyStart : bodyStart+end])
+	if !strings.Contains(strings.ToUpper(ics), "BEGIN:VCALENDAR") ||
+		!strings.Contains(strings.ToUpper(ics), "END:VCALENDAR") {
+		return content, ""
+	}
+	cleaned := strings.TrimSpace(content[:start] + content[bodyStart+end+3:])
+	return cleaned, ics
+}
+
 func (a *App) findOpencode() (string, error) {
 	// Prefer the real executable over the npm .cmd shim: the shim truncates
 	// prompts that contain newlines on Windows.
@@ -288,6 +334,7 @@ func (a *App) saveWorkflowResult(job *WorkflowJob, def workflowDefinition, conte
 	if len(content) > maxWorkflowOutput {
 		return WorkflowResult{}, fmt.Errorf("el informe de OpenCode es demasiado grande")
 	}
+	content, ics := extractICSBlock(content)
 	videoPath := absClean(job.VideoPath)
 	a.mu.RLock()
 	root := a.state.Workspace
@@ -299,6 +346,13 @@ func (a *App) saveWorkflowResult(job *WorkflowJob, def workflowDefinition, conte
 	if err := writeFileAtomic(filePath, []byte(content+"\n"), 0o600); err != nil {
 		filePath = ""
 	}
+	attachmentPath := ""
+	if ics != "" {
+		attachmentPath = workflowAttachmentPath(videoPath, def.OutputFile)
+		if err := writeFileAtomic(attachmentPath, []byte(ics+"\n"), 0o600); err != nil {
+			attachmentPath = ""
+		}
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	i := a.boardIndex(job.BoardID)
@@ -307,20 +361,79 @@ func (a *App) saveWorkflowResult(job *WorkflowJob, def workflowDefinition, conte
 	}
 	x, y := workflowResultPosition(&a.state.Boards[i], videoPath)
 	result := WorkflowResult{
-		ID:           newID("result"),
-		WorkflowID:   def.ID,
-		WorkflowName: def.Name,
-		VideoPath:    videoPath,
-		VideoName:    filepath.Base(videoPath),
-		ClassName:    filepath.Base(filepath.Dir(videoPath)),
-		Content:      content,
-		FilePath:     filePath,
-		SessionID:    job.SessionID,
-		X:            x,
-		Y:            y,
-		Width:        430,
-		Height:       380,
-		CreatedAt:    time.Now().UnixMilli(),
+		ID:             newID("result"),
+		WorkflowID:     def.ID,
+		WorkflowName:   def.Name,
+		VideoPath:      videoPath,
+		VideoName:      filepath.Base(videoPath),
+		ClassName:      filepath.Base(filepath.Dir(videoPath)),
+		Content:        content,
+		FilePath:       filePath,
+		AttachmentPath: attachmentPath,
+		Language:       job.OutputLanguage,
+		SessionID:      job.SessionID,
+		X:              x,
+		Y:              y,
+		Width:          430,
+		Height:         380,
+		CreatedAt:      time.Now().UnixMilli(),
+	}
+	a.state.Boards[i].Results = append(a.state.Boards[i].Results, result)
+	a.saveStateLocked()
+	return result, nil
+}
+
+func (a *App) saveTranslatedResult(job *WorkflowJob, original WorkflowResult, content, target string) (WorkflowResult, error) {
+	content = strings.TrimSpace(sanitizeUntrustedText(content))
+	if content == "" {
+		return WorkflowResult{}, fmt.Errorf("OpenCode no devolvió texto")
+	}
+	if len(content) > maxWorkflowOutput {
+		return WorkflowResult{}, fmt.Errorf("la traducción es demasiado grande")
+	}
+	videoPath := absClean(original.VideoPath)
+	a.mu.RLock()
+	root := a.state.Workspace
+	a.mu.RUnlock()
+	if !insideRootResolved(root, videoPath) {
+		return WorkflowResult{}, fmt.Errorf("el video está fuera del espacio de trabajo")
+	}
+	def, _ := workflowByID(original.WorkflowID)
+	outputFile := def.OutputFile
+	if outputFile == "" {
+		outputFile = original.WorkflowID
+	}
+	filePath := workflowTranslationPath(videoPath, outputFile, target)
+	if err := writeFileAtomic(filePath, []byte(content+"\n"), 0o600); err != nil {
+		filePath = ""
+	}
+	langName := workflowLanguageName(target)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	i := a.boardIndex(job.BoardID)
+	if i < 0 {
+		return WorkflowResult{}, fmt.Errorf("tablero no encontrado")
+	}
+	x, y := workflowResultPosition(&a.state.Boards[i], videoPath)
+	result := WorkflowResult{
+		ID:             newID("result"),
+		WorkflowID:     original.WorkflowID,
+		WorkflowName:   original.WorkflowName + " · " + langName,
+		VideoPath:      videoPath,
+		VideoName:      filepath.Base(videoPath),
+		ClassName:      filepath.Base(filepath.Dir(videoPath)),
+		Content:        content,
+		FilePath:       filePath,
+		AttachmentPath: original.AttachmentPath,
+		Language:       target,
+		SourceResultID: original.ID,
+		Color:          original.Color,
+		SessionID:      job.SessionID,
+		X:              x,
+		Y:              y,
+		Width:          430,
+		Height:         380,
+		CreatedAt:      time.Now().UnixMilli(),
 	}
 	a.state.Boards[i].Results = append(a.state.Boards[i].Results, result)
 	a.saveStateLocked()
@@ -349,15 +462,18 @@ func (a *App) mcpWorkflowResults(query string, limit int) []map[string]any {
 				preview = string([]rune(preview)[:500]) + "…"
 			}
 			out = append(out, map[string]any{
-				"id":           result.ID,
-				"workflowId":   result.WorkflowID,
-				"workflowName": result.WorkflowName,
-				"video":        result.VideoPath,
-				"videoName":    result.VideoName,
-				"class":        result.ClassName,
-				"createdAt":    result.CreatedAt,
-				"filePath":     result.FilePath,
-				"preview":      preview,
+				"id":             result.ID,
+				"workflowId":     result.WorkflowID,
+				"workflowName":   result.WorkflowName,
+				"video":          result.VideoPath,
+				"videoName":      result.VideoName,
+				"class":          result.ClassName,
+				"createdAt":      result.CreatedAt,
+				"filePath":       result.FilePath,
+				"attachmentPath": result.AttachmentPath,
+				"language":       result.Language,
+				"sourceResultId": result.SourceResultID,
+				"preview":        preview,
 			})
 			if len(out) >= limit {
 				return out
@@ -414,6 +530,15 @@ func (a *App) mcpWorkflowResult(id, video, workflow string) (string, error) {
 	b.WriteString("- Video: " + result.VideoPath + "\n")
 	if result.FilePath != "" {
 		b.WriteString("- Archivo Markdown: " + result.FilePath + "\n")
+	}
+	if result.AttachmentPath != "" {
+		b.WriteString("- Archivo adjunto: " + result.AttachmentPath + "\n")
+	}
+	if result.Language != "" {
+		b.WriteString("- Idioma: " + workflowLanguageName(result.Language) + "\n")
+	}
+	if result.SourceResultID != "" {
+		b.WriteString("- Traducción de: " + result.SourceResultID + "\n")
 	}
 	if result.SessionID != "" {
 		b.WriteString("- Sesión OpenCode: " + result.SessionID + "\n")

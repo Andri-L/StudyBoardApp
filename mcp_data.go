@@ -727,6 +727,10 @@ func mcpWorkflowPromptName(id string) string {
 		return "extraer-tareas"
 	case "exam-focus":
 		return "puntos-parciales"
+	case "study-plan":
+		return "plan-de-estudio"
+	case "calendar-dates":
+		return "fechas-calendario"
 	default:
 		return id
 	}

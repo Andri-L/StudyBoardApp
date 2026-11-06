@@ -47,6 +47,7 @@ type App struct {
 	workflowOrder   []string
 	workflowQueue   chan *WorkflowJob
 	workflowCancels map[string]context.CancelFunc
+	playbackMu      sync.Mutex
 }
 
 func NewApp() *App {

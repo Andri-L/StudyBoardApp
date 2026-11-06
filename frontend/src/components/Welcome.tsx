@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useStudyBoard } from '../store';
 import { compactPath } from '../api';
+import ThemeToggle from './ThemeToggle';
 
 export default function Welcome() {
   const state = useStudyBoard((s) => s.state);
@@ -29,9 +30,12 @@ export default function Welcome() {
             <div className="brand-tag">Espacio de clases</div>
           </div>
         </div>
-        <div className="welcome-local">
-          <HardDrive size={14} />
-          Todo se procesa en tu PC
+        <div className="welcome-header-actions">
+          <div className="welcome-local">
+            <HardDrive size={14} />
+            Todo se procesa en tu PC
+          </div>
+          <ThemeToggle compact />
         </div>
       </header>
 
@@ -127,7 +131,7 @@ export default function Welcome() {
 
       <footer className="welcome-footer">
         <span>Hecho para estudiar mejor, no para ver más videos.</span>
-        <span>v1.1.1 · Windows</span>
+        <span>v1.2.0 · Windows</span>
       </footer>
     </div>
   );

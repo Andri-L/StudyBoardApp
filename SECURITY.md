@@ -3,7 +3,7 @@
 ## Supported versions
 
 Security fixes are applied to the latest release. The current supported version
-is **1.1.x**.
+is **1.2.x**.
 
 ## Threat model
 
@@ -56,6 +56,10 @@ Unattended workflows are treated as a hostile-input boundary:
 - Only the read-only StudyBoard MCP tools are allowed. Shell, file editing,
   direct file reads, web fetch/search, subagents, skills, LSP, and todo tools
   are explicitly denied, even with `--auto`.
+- The generated inline configuration denies those tools even when the user's
+  global config would allow them.
+- Completed tool calls are audited. If the model uses anything other than a
+  StudyBoard MCP tool, the run is aborted and no report is saved.
 - The process runs in a dedicated empty directory, never in the class
   workspace. Project config, `AGENTS.md`, local plugins, and planted DLLs in a
   class folder therefore do not influence the run.
@@ -82,9 +86,11 @@ Workflow reports are model output and are rendered as untrusted Markdown:
 - Models are downloaded only over HTTPS from the built-in catalog.
 - Redirects are limited and must stay on HTTPS.
 - Downloads are written to a random temporary file with user-only permissions.
-- The final size must match the catalog and the file must have the GGML magic
-  header before it is accepted.
-- The same validation is applied before a model can be selected.
+- The final size must match the catalog, the file must have the GGML magic
+  header, and its SHA256 must match the hash published in the catalog before it
+  is accepted.
+- The same SHA256 checks are applied by `scripts/setup-engine.ps1` for the VAD
+  and model files.
 
 ### Dependencies
 
@@ -92,6 +98,8 @@ Workflow reports are model output and are rendered as untrusted Markdown:
 - `govulncheck` reports no known vulnerabilities in the Go build.
 - The project requires Go 1.26.10 or newer so the build includes the latest
   standard-library security fixes.
+- GitHub Actions runs tests, vet, `govulncheck`, frontend build, `npm audit` and
+  Playwright E2E tests on every push and pull request.
 
 ## Residual risks
 

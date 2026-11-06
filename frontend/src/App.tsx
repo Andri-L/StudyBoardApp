@@ -28,6 +28,11 @@ export default function App() {
   const jobsOpen = useStudyBoard((s) => s.jobsOpen);
   const setJobsOpen = useStudyBoard((s) => s.setJobsOpen);
   const workflowPanelOpen = useStudyBoard((s) => s.workflowPanelOpen);
+  const theme = useStudyBoard((s) => s.theme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     void init();

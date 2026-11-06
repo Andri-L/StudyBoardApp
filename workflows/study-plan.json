@@ -1,0 +1,9 @@
+{
+  "id": "study-plan",
+  "name": "Plan de estudio",
+  "shortName": "Plan",
+  "description": "Convierte el contenido real de la clase en un plan breve y priorizado para estudiar.",
+  "icon": "book-open",
+  "promptFile": "prompts/study-plan.md",
+  "outputFile": "plan"
+}

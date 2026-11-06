@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -19,6 +22,7 @@ type modelSpec struct {
 	Description string
 	URL         string
 	Size        int64
+	SHA256      string
 }
 
 var modelCatalog = []modelSpec{
@@ -28,6 +32,7 @@ var modelCatalog = []modelSpec{
 		Description: "Equilibrado y recomendado para clases",
 		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
 		Size:        574041195,
+		SHA256:      "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
 	},
 	{
 		File:        "ggml-small-q5_1.bin",
@@ -35,6 +40,7 @@ var modelCatalog = []modelSpec{
 		Description: "Rápido para pruebas de velocidad",
 		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
 		Size:        190085487,
+		SHA256:      "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb",
 	},
 	{
 		File:        "ggml-small.bin",
@@ -42,6 +48,7 @@ var modelCatalog = []modelSpec{
 		Description: "Más preciso que el small q5, más lento",
 		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
 		Size:        487601967,
+		SHA256:      "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
 	},
 	{
 		File:        "ggml-medium-q5_0.bin",
@@ -49,6 +56,7 @@ var modelCatalog = []modelSpec{
 		Description: "Más calidad, bastante más lento",
 		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
 		Size:        539212467,
+		SHA256:      "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
 	},
 	{
 		File:        "ggml-base-q5_1.bin",
@@ -56,6 +64,7 @@ var modelCatalog = []modelSpec{
 		Description: "Muy rápido, calidad básica",
 		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
 		Size:        59707625,
+		SHA256:      "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898",
 	},
 	{
 		File:        "ggml-tiny.bin",
@@ -63,6 +72,7 @@ var modelCatalog = []modelSpec{
 		Description: "Solo para pruebas rápidas",
 		URL:         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
 		Size:        77691713,
+		SHA256:      "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
 	},
 	{
 		File:        "ggml-distil-large-v3.bin",
@@ -70,6 +80,7 @@ var modelCatalog = []modelSpec{
 		Description: "Experimental: evaluar velocidad y calidad",
 		URL:         "https://huggingface.co/distil-whisper/distil-large-v3-ggml/resolve/main/ggml-distil-large-v3.bin",
 		Size:        1519521155,
+		SHA256:      "2883a11b90fb10ed592d826edeaee7d2929bf1ab985109fe9e1e7b4d2b69a298",
 	},
 }
 
@@ -279,13 +290,15 @@ func (a *App) runModelDownload(spec modelSpec) {
 
 	total := int64(spec.Size)
 	var written int64
+	hasher := sha256.New()
+	destination := io.MultiWriter(out, hasher)
 	lastEmit := time.Now()
 	buf := make([]byte, 512*1024)
 	body := io.LimitReader(resp.Body, spec.Size+1)
 	for {
 		n, readErr := body.Read(buf)
 		if n > 0 {
-			if _, writeErr := out.Write(buf[:n]); writeErr != nil {
+			if _, writeErr := destination.Write(buf[:n]); writeErr != nil {
 				fail(writeErr)
 				return
 			}
@@ -322,6 +335,13 @@ func (a *App) runModelDownload(spec modelSpec) {
 	if !isGGMLModel(tmp) {
 		fail(fmt.Errorf("el archivo descargado no es un modelo Whisper válido"))
 		return
+	}
+	if spec.SHA256 != "" {
+		sum := hex.EncodeToString(hasher.Sum(nil))
+		if !strings.EqualFold(sum, spec.SHA256) {
+			fail(fmt.Errorf("el hash del modelo no coincide; descarga cancelada"))
+			return
+		}
 	}
 	if err := os.Rename(tmp, dest); err != nil {
 		if removeErr := os.Remove(dest); removeErr != nil && !os.IsNotExist(removeErr) {

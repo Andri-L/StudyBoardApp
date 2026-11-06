@@ -12,13 +12,17 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
+  Activity,
   Cpu,
   FolderOpen,
   FolderPlus,
   Layers,
   Maximize2,
   MousePointer2,
+  MoveRight,
   MoveUpRight,
+  Palette,
+  Pencil,
   Plus,
   StickyNote,
   Workflow,
@@ -27,10 +31,13 @@ import {
 import { boardById, useStudyBoard } from '../store';
 import type { Card, Note, WorkflowResult } from '../types';
 import { compactPath } from '../api';
+import { ARROW_COLORS, PASTEL_COLORS } from '../colors';
 import { nodeTypes } from './nodes';
 import ArrowLayer from './ArrowLayer';
 import FolderDialog from './FolderDialog';
 import QuickSettings from './QuickSettings';
+import RenameDialog from './RenameDialog';
+import ThemeToggle from './ThemeToggle';
 
 type BoardNode = Node<{ card?: Card; note?: Note; result?: WorkflowResult }, 'folder' | 'video' | 'note' | 'result'>;
 
@@ -82,6 +89,14 @@ interface ArrowDraft {
   end: { x: number; y: number } | null;
 }
 
+interface NodeMenuState {
+  x: number;
+  y: number;
+  itemId: string;
+  itemName: string;
+  renamePath?: string;
+}
+
 export default function BoardView() {
   return (
     <ReactFlowProvider>
@@ -103,7 +118,9 @@ function BoardInner() {
   const moveNote = useStudyBoard((s) => s.moveNote);
   const removeNote = useStudyBoard((s) => s.removeNote);
   const addArrow = useStudyBoard((s) => s.addArrow);
+  const updateArrow = useStudyBoard((s) => s.updateArrow);
   const removeArrow = useStudyBoard((s) => s.removeArrow);
+  const setItemColor = useStudyBoard((s) => s.setItemColor);
   const openWorkflowDialog = useStudyBoard((s) => s.openWorkflowDialog);
   const moveWorkflowResult = useStudyBoard((s) => s.moveWorkflowResult);
   const removeWorkflowResult = useStudyBoard((s) => s.removeWorkflowResult);
@@ -111,18 +128,25 @@ function BoardInner() {
   const { screenToFlowPosition, fitView } = useReactFlow();
 
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
+  const [nodeMenu, setNodeMenu] = useState<NodeMenuState | null>(null);
+  const [renameDialog, setRenameDialog] = useState<{ path: string; name: string } | null>(null);
   const [folderDialog, setFolderDialog] = useState<{ x: number; y: number } | null>(null);
   const [arrowDraft, setArrowDraft] = useState<ArrowDraft | null>(null);
   const [selectedArrowId, setSelectedArrowId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const nodeMenuRef = useRef<HTMLDivElement>(null);
 
   const signature = useMemo(
     () =>
       board
         ? [
-            ...(board.cards ?? []).map((card) => card.id),
+            ...(board.cards ?? []).map((card) =>
+              [card.id, card.path, card.label, card.dateLabel || '', card.color || ''].join('~'),
+            ),
             ...(board.notes ?? []).map((note) => note.id),
-            ...(board.results ?? []).map((result) => result.id),
+            ...(board.results ?? []).map((result) =>
+              [result.id, result.color || '', result.filePath, result.language || '', result.workflowName].join('~'),
+            ),
           ].join('|')
         : '',
     [board],
@@ -144,13 +168,15 @@ function BoardInner() {
   }, [board?.id, signature]);
 
   useEffect(() => {
-    if (!menu) return;
+    if (!menu && !nodeMenu) return;
     const close = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as globalThis.Node)) setMenu(null);
+      const target = event.target as globalThis.Node;
+      if (menu && !menuRef.current?.contains(target)) setMenu(null);
+      if (nodeMenu && !nodeMenuRef.current?.contains(target)) setNodeMenu(null);
     };
     window.addEventListener('mousedown', close);
     return () => window.removeEventListener('mousedown', close);
-  }, [menu]);
+  }, [menu, nodeMenu]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -161,6 +187,7 @@ function BoardInner() {
         Boolean(target?.isContentEditable);
       if (event.key === 'Escape') {
         setMenu(null);
+        setNodeMenu(null);
         setArrowDraft(null);
         setSelectedArrowId(null);
       }
@@ -205,6 +232,7 @@ function BoardInner() {
   const ready = Boolean(state?.engine.ready);
   const workspaceName = (state?.workspace || '').split(/[\\/]/).filter(Boolean).pop() || '';
   const selectedCard = (board.cards ?? []).find((card) => card.id === selectedCardId);
+  const selectedArrow = (board.arrows ?? []).find((arrow) => arrow.id === selectedArrowId);
   const folderParent =
     selectedCard?.kind === 'folder' ? selectedCard.path : state?.workspace || '';
   const noteCount = board.notes?.length ?? 0;
@@ -213,12 +241,20 @@ function BoardInner() {
 
   const handlePaneClick = (event: React.MouseEvent) => {
     setMenu(null);
+    setNodeMenu(null);
     if (arrowDraft) {
       const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       if (!arrowDraft.start) {
         setArrowDraft({ start: point, end: point });
       } else {
-        void addArrow(arrowDraft.start.x, arrowDraft.start.y, point.x, point.y);
+        void addArrow(
+          arrowDraft.start.x,
+          arrowDraft.start.y,
+          point.x,
+          point.y,
+          'straight',
+          ARROW_COLORS[0],
+        );
         setArrowDraft(null);
       }
       return;
@@ -233,9 +269,8 @@ function BoardInner() {
     setArrowDraft({ ...arrowDraft, end: point });
   };
 
-  const menuPosition = (x: number, y: number) => {
-    const width = 220;
-    const height = 150;
+  const menuPosition = (x: number, y: number, height = 150) => {
+    const width = 230;
     return {
       left: Math.min(x, window.innerWidth - width - 14),
       top: Math.min(y, window.innerHeight - height - 14),
@@ -260,6 +295,7 @@ function BoardInner() {
         </div>
         <div className="toolbar-actions">
           <QuickSettings />
+          <ThemeToggle />
           <button className="btn btn-ghost" onClick={() => void openWorkflowDialog()}>
             <Workflow size={15} />
             Ejecutar workflow
@@ -322,7 +358,25 @@ function BoardInner() {
               selectCard(node.id);
             }
           }}
-          onNodeContextMenu={(event) => event.preventDefault()}
+          onNodeContextMenu={(event, node) => {
+            event.preventDefault();
+            const card = node.data?.card as Card | undefined;
+            const note = node.data?.note as Note | undefined;
+            const result = node.data?.result as WorkflowResult | undefined;
+            const itemId = card?.id || note?.id || result?.id;
+            const itemName = card?.label || note?.text?.slice(0, 24) || result?.workflowName;
+            if (!itemId) return;
+            setMenu(null);
+            setNodeMenu({
+              x: event.clientX,
+              y: event.clientY,
+              itemId,
+              itemName: itemName || 'Elemento',
+              renamePath: card?.path,
+            });
+            setSelectedArrowId(null);
+            if (card) selectCard(card.id);
+          }}
           onPaneClick={handlePaneClick}
           onPaneMouseMove={handlePaneMouseMove}
           onPaneContextMenu={(event) => {
@@ -346,6 +400,9 @@ function BoardInner() {
           panOnDrag={!arrowDraft}
           nodesDraggable={!arrowDraft}
           elementsSelectable={!arrowDraft}
+          onlyRenderVisibleElements
+          nodeDragThreshold={1}
+          elevateNodesOnSelect
           fitViewOptions={{ padding: 0.25, maxZoom: 1.1 }}
           proOptions={{ hideAttribution: true }}
           className="studyboard-flow"
@@ -353,10 +410,18 @@ function BoardInner() {
           <ArrowLayer
             arrows={board.arrows ?? []}
             selectedId={selectedArrowId}
-            onSelect={setSelectedArrowId}
+            onSelect={(id) => {
+              setSelectedArrowId(id);
+              if (id) selectCard(null);
+            }}
+            onCommit={(id, x1, y1, x2, y2) => {
+              const arrow = (board.arrows ?? []).find((item) => item.id === id);
+              if (!arrow) return;
+              void updateArrow(id, x1, y1, x2, y2, arrow.type || 'straight', arrow.color || ARROW_COLORS[0]);
+            }}
             draft={arrowDraft}
           />
-          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#c9c9c9" />
+          <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="var(--flow-dots)" />
           <Controls showInteractive={false} position="bottom-right" />
         </ReactFlow>
 
@@ -371,6 +436,131 @@ function BoardInner() {
             <button className="icon-btn tiny" onClick={() => setArrowDraft(null)} title="Cancelar">
               <X size={13} />
             </button>
+          </div>
+        )}
+
+        {selectedArrow && (
+          <div className="selection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
+            <span className="selection-label">Flecha</span>
+            <button
+              className={`selection-segment ${(selectedArrow.type || 'straight') === 'straight' ? 'active' : ''}`}
+              title="Flecha recta"
+              onClick={() => void updateArrow(
+                selectedArrow.id,
+                selectedArrow.x1,
+                selectedArrow.y1,
+                selectedArrow.x2,
+                selectedArrow.y2,
+                'straight',
+                selectedArrow.color || ARROW_COLORS[0],
+              )}
+            >
+              <MoveRight size={14} />
+              Recta
+            </button>
+            <button
+              className={`selection-segment ${selectedArrow.type === 's' ? 'active' : ''}`}
+              title="Flecha en S"
+              onClick={() => void updateArrow(
+                selectedArrow.id,
+                selectedArrow.x1,
+                selectedArrow.y1,
+                selectedArrow.x2,
+                selectedArrow.y2,
+                's',
+                selectedArrow.color || ARROW_COLORS[0],
+              )}
+            >
+              <Activity size={14} />
+              Curva S
+            </button>
+            <span className="selection-divider" />
+            <Palette size={13} className="selection-icon" />
+            {ARROW_COLORS.map((color) => (
+              <button
+                key={color}
+                className={`color-swatch ${selectedArrow.color === color ? 'active' : ''}`}
+                style={{ background: color }}
+                title="Color de flecha"
+                onClick={() => void updateArrow(
+                  selectedArrow.id,
+                  selectedArrow.x1,
+                  selectedArrow.y1,
+                  selectedArrow.x2,
+                  selectedArrow.y2,
+                  selectedArrow.type || 'straight',
+                  color,
+                )}
+              />
+            ))}
+            <button
+              className="icon-btn tiny selection-delete"
+              title="Eliminar flecha"
+              onClick={() => {
+                void removeArrow(selectedArrow.id);
+                setSelectedArrowId(null);
+              }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        )}
+
+        {selectedCard && (
+          <div className="selection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
+            <Palette size={13} className="selection-icon" />
+            <span className="selection-label">Fondo</span>
+            {PASTEL_COLORS.map((color) => (
+              <button
+                key={color}
+                className={`color-swatch pastel ${selectedCard.color === color ? 'active' : ''}`}
+                style={{ background: color }}
+                title="Color de fondo"
+                onClick={() => void setItemColor(selectedCard.id, color)}
+              />
+            ))}
+          </div>
+        )}
+
+        {nodeMenu && (
+          <div
+            ref={nodeMenuRef}
+            className="board-context-menu node-context-menu"
+            style={menuPosition(nodeMenu.x, nodeMenu.y, 300)}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="node-menu-title" title={nodeMenu.itemName}>{nodeMenu.itemName}</div>
+            {nodeMenu.renamePath && (
+              <button
+                onClick={() => {
+                  setRenameDialog({
+                    path: nodeMenu.renamePath!,
+                    name: nodeMenu.itemName,
+                  });
+                  setNodeMenu(null);
+                }}
+              >
+                <Pencil size={15} />
+                Renombrar en el disco
+              </button>
+            )}
+            <div className="node-menu-palette">
+              <span>Fondo</span>
+              <div>
+                {PASTEL_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className="color-swatch pastel"
+                    style={{ background: color }}
+                    title="Color de fondo"
+                    onClick={() => {
+                      void setItemColor(nodeMenu.itemId, color);
+                      setNodeMenu(null);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -444,6 +634,14 @@ function BoardInner() {
           x={folderDialog.x}
           y={folderDialog.y}
           onClose={() => setFolderDialog(null)}
+        />
+      )}
+
+      {renameDialog && (
+        <RenameDialog
+          path={renameDialog.path}
+          initialName={renameDialog.name}
+          onClose={() => setRenameDialog(null)}
         />
       )}
     </div>

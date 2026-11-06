@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.2.0 — 2026-11-05
+
+Workspace interactions, arrow editing, dark mode and new study workflows.
+
+### Added
+
+- Rename real files and folders from the board or folder browser (right-click
+  or pencil action). Paths, cards, transcripts, workflow reports and Markdown
+  files are migrated together.
+- Pastel background colors for cards, notes and workflow result cards (9-color
+  palette).
+- Arrow types: straight and S-curve. Arrows can be selected, moved as a whole,
+  resized by dragging either endpoint, recolored and deleted from a floating
+  toolbar.
+- Dark mode with a persistent light/dark toggle.
+- **Plan de estudio** workflow: turns the actual class content into a short,
+  prioritized study plan.
+- **Fechas para calendario** workflow: extracts exams, deliveries and events
+  and writes a `.ics` file next to the video.
+- Report translation: translate any workflow report to Spanish or English,
+  preserving timestamps and evidence.
+- Automatic MP4 conversion for formats that WebView2 cannot play, with a
+  “Convertir a MP4” action in the video viewer.
+- SHA256 verification for model downloads, including the setup script.
+- GitHub Actions CI with Go tests, vet, `govulncheck`, frontend build,
+  `npm audit` and Playwright E2E tests.
+- Playwright E2E suite with a mocked Wails backend.
+
+### Changed
+
+- **Task extraction** and **Puntos para parciales** are now strict: when no
+  explicit tasks or exam information exist, they return a short answer instead
+  of a long report. General study material belongs to the new study plan
+  workflow.
+- Workflow results are automatically placed on the board that contains the
+  source video.
+- Workflows now audit completed tool calls and abort if any non-StudyBoard tool
+  was used.
+- Dragging cards and arrows is smoother: custom nodes are memoized and React
+  Flow only renders visible elements.
+
+### Fixed
+
+- Workflow reports no longer include intermediate model narration.
+- Renaming a video now renames its generated Markdown reports and migrates its
+  transcript cache.
+- Replaced workflow results keep their language and source information.
+
 ## v1.1.1 — 2026-11-05
 
 Security hardening release.

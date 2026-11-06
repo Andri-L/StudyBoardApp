@@ -21,18 +21,27 @@ references to real paths.
 - Visual board with folder and video cards (React Flow).
 - Right-click on the board to create **real folders**, **sticky notes**, and
   freeform **arrows**.
+- Rename real files and folders from the board or folder browser.
+- Nine pastel background colors for cards, notes and reports.
+- Straight and S-curve arrows with selection, movement, endpoint resizing and
+  color controls.
+- Light and dark themes, persisted across launches.
 - Notes and arrows persist text, color, and coordinates in the board JSON.
 - Multiple boards per subject and an integrated folder browser.
 - Local transcription with Whisper.cpp and Vulkan GPU acceleration.
 - Segment-level and word-level timestamps in the internal JSON.
 - Video player synchronized with the transcript; click a timestamp to seek.
+- On-demand MP4 conversion for formats that WebView2 cannot play.
 - In-transcript search, follow mode, and frame capture.
 - Transcription queue with progress, cancellation, and retry.
 - Markdown (with timestamps) and SRT export.
 - Model manager with bundled download support for `tiny`, `base`, `small`,
   `small-q5`, `medium-q5`, `large-v3-turbo`, and `distil-large-v3`.
+- SHA256 verification for downloaded models.
 - Language selector: Spanish, English, or automatic detection.
-- **Automatic OpenCode workflows** for task extraction and exam preparation.
+- **Automatic OpenCode workflows** for task extraction, exam focus, study plans
+  and calendar dates.
+- Translate workflow reports between Spanish and English.
 - Workflow reports appear as sticky-note cards next to the video and are saved
   as Markdown beside the recording.
 - Workflow picker for running several workflows across several classes at once.
@@ -114,6 +123,20 @@ If `wails` is not on your PATH:
 & "$env:USERPROFILE\go\bin\wails.exe" dev
 ```
 
+In development, point StudyBoard to the repository engine explicitly:
+
+```powershell
+$env:STUDYBOARD_ENGINE_DIR = (Get-Location).Path
+```
+
+Frontend end-to-end tests use a mocked Wails backend:
+
+```powershell
+cd frontend
+npm run build
+npm run test:e2e
+```
+
 ## OpenCode TUI integration (MCP)
 
 The MCP server reads the workspace and saved transcripts. It works even when the
@@ -160,13 +183,15 @@ OpenCode prefixes tools with the server name:
 - `studyboard_search_transcripts`: global accent-insensitive search.
 - `studyboard_get_transcript`: full transcript or a timestamp range.
 - `studyboard_capture_frame`: image from an exact second in a video.
-- `studyboard_list_workflow_results`: generated task or exam reports.
+- `studyboard_list_workflow_results`: generated task, exam, plan or date
+  reports.
 - `studyboard_get_workflow_result`: full report by id, video, or workflow.
 
 It also exposes resources (`studyboard://overview`, `videos`, `transcripts`,
 `workflow-results`) and the prompts `/studyboard:resumir-clase`,
-`/studyboard:buscar-clases`, `/studyboard:extraer-tareas`, and
-`/studyboard:puntos-parciales`.
+`/studyboard:buscar-clases`, `/studyboard:extraer-tareas`,
+`/studyboard:puntos-parciales`, `/studyboard:plan-de-estudio`, and
+`/studyboard:fechas-calendario`.
 
 Examples:
 
@@ -183,14 +208,18 @@ StudyBoard can run OpenCode automatically over a transcribed class. The app
 starts `opencode run` with a new session and reuses the authentication you
 already configured in OpenCode; there is no separate login inside StudyBoard.
 
-There are two built-in workflows:
+There are four built-in workflows:
 
-- **Task extraction** (`task-extraction`): explicit and probable assignments,
-  requirements, teacher preferences, deadlines, submission channel, team mode,
-  rubric hints, evidence with timestamps, and open questions.
-- **Exam focus** (`exam-focus`): explicit exam information separated from
-  teacher emphasis, excluded topics, question formats, a prioritized study
-  plan, practice questions, and warnings. It never invents exam details.
+- **Task extraction** (`task-extraction`): explicit assignments, requirements,
+  teacher preferences, deadlines, submission channel, team mode, rubric hints,
+  evidence, and open questions. If there is no task, it returns a short answer.
+- **Exam focus** (`exam-focus`): only explicit exam information. If the teacher
+  did not explicitly mention exam topics, format, date or criteria, it returns a
+  short “no explicit exam information” answer instead of a long study plan.
+- **Plan de estudio** (`study-plan`): a short, prioritized study plan based on
+  the actual class content, including practice and evidence.
+- **Fechas para calendario** (`calendar-dates`): exams, deliveries and events
+  with dates, plus a `.ics` file you can import into a calendar.
 
 To run one:
 
@@ -200,10 +229,12 @@ To run one:
 3. Choose the output language (Spanish or English).
 4. Click **Ejecutar**.
 
-Each result is placed next to the source video as a card and saved as a
-Markdown file beside the video (`<video> - tareas.md` or
-`<video> - parcial.md`). You can drag the card, copy its content, reveal the
-file in Explorer, or remove the card without deleting the Markdown file.
+Each result is placed on the board that contains the source video as a card and
+saved as a Markdown file beside the video (`<video> - tareas.md`,
+`<video> - parcial.md`, `<video> - plan.md` or `<video> - fechas.md`). Calendar
+workflows also write a `.ics` file. You can drag the card, copy its content,
+translate it to Spanish or English, reveal the file in Explorer, or remove the
+card without deleting the Markdown file.
 
 Prompt templates are written in English for model reliability. The final report
 is written in the language selected by the user. Workflows require the OpenCode
@@ -234,8 +265,9 @@ Downloads are stored in:
 %LOCALAPPDATA%\StudyBoard App\models\
 ```
 
-Models are not committed to this repository. Whisper/FFmpeg binaries are also
-installed locally by `scripts/setup-engine.ps1`.
+Models are not committed to this repository. Downloads are verified against the
+SHA256 hash published in the built-in catalog before they can be selected.
+Whisper/FFmpeg binaries are installed locally by `scripts/setup-engine.ps1`.
 
 ## App data
 
@@ -270,8 +302,9 @@ from Whisper's callback and FFmpeg's `-progress` output.
 ```text
 StudyBoardApp/
 ├── app.go              # bindings, state, exports
-├── board_items.go      # folders, sticky notes, and arrow annotations
+├── board_items.go      # folders, notes, arrows, rename and colors
 ├── security.go         # path containment, atomic writes, URL validation
+├── playback.go         # MP4 conversion for unsupported containers
 ├── workflows.go        # workflow definitions, prompts, results
 ├── workflow_jobs.go    # OpenCode queue and execution
 ├── workflows/          # declarative workflows and prompt templates
@@ -310,8 +343,12 @@ Results depend on the video, GPU, model, and open applications.
   stored in the JSON but not yet used for navigation.
 - No speaker diarization.
 - Workflows require the OpenCode CLI to be installed and authenticated.
-- Some MKV/AVI files may not play inside WebView2; an external player option is
-  provided.
+- Converting an unsupported video to MP4 can take several minutes.
+- The UI is currently in Spanish; internationalization is planned.
+- Calendar events are extracted by the model. Review the generated `.ics` before
+  importing it.
+- Some MKV/AVI files may not play inside WebView2; an external player and MP4
+  conversion are provided.
 - Global search is available through MCP; the UI does not yet have a
   cross-class search page.
 - The MCP server is read-only: it does not start transcriptions or workflows.
@@ -322,7 +359,7 @@ Results depend on the video, GPU, model, and open applications.
 2. Speaker diarization (teacher/students).
 3. Global search inside the UI.
 4. Batch processing of entire folders.
-5. More workflows and a translation option for reports.
+5. UI internationalization and user-defined workflows.
 
 Technical reference for alignment and diarization:
 [jpgomezv/video-transcriber](https://github.com/jpgomezv/video-transcriber).
@@ -346,7 +383,8 @@ The app treats class material, transcripts, and model output as untrusted:
 - Paths are resolved before access to block symlink and junction escapes.
 - Workflow reports skip raw HTML, block remote images, and open links only in the
   system browser after validating `http`/`https` and rejecting local hosts.
-- Model downloads require HTTPS and are checked for size and GGML format.
+- Model downloads require HTTPS, verify the catalog SHA256, and are checked for
+  GGML format.
 - State and report writes are atomic with user-only permissions.
 - `npm audit` and `govulncheck` report no known vulnerabilities.
 

@@ -2,6 +2,51 @@
 
 [English](CHANGELOG.md) · [Español](CHANGELOG.es.md)
 
+## v1.2.0 — 2026-11-05
+
+Interacción del workspace, edición de flechas, modo oscuro y nuevos workflows.
+
+### Añadido
+
+- Renombrar archivos y carpetas reales desde el tablero o el navegador de
+  carpetas (clic derecho o lápiz). Se migran rutas, tarjetas, transcripciones,
+  informes y archivos Markdown.
+- Colores pastel de fondo para tarjetas, notas e informes (paleta de 9 colores).
+- Tipos de flecha: recta y curva S. Las flechas se pueden seleccionar, mover
+  completas, redimensionar arrastrando cualquiera de sus extremos, cambiar de
+  color y eliminar desde una barra flotante.
+- Modo oscuro con selector persistente claro/oscuro.
+- Workflow **Plan de estudio**: convierte el contenido real de la clase en un
+  plan breve y priorizado.
+- Workflow **Fechas para calendario**: extrae exámenes, entregas y eventos y
+  genera un archivo `.ics` junto al video.
+- Traducción de informes: traduce cualquier informe a español o inglés
+  conservando timestamps y evidencia.
+- Conversión automática a MP4 para formatos que WebView2 no reproduce, con la
+  acción “Convertir a MP4” en el visor.
+- Verificación SHA256 de descargas de modelos, incluido el script de instalación.
+- CI con GitHub Actions: tests de Go, vet, `govulncheck`, build del frontend,
+  `npm audit` y pruebas E2E con Playwright.
+- Suite E2E de Playwright con backend Wails simulado.
+
+### Cambiado
+
+- **Extracción de tareas** y **Puntos para parciales** ahora son estrictos: si
+  no hay tareas o información explícita de parcial, devuelven una respuesta
+  corta en vez de un informe largo. El material de estudio general pasa al nuevo
+  workflow de plan de estudio.
+- Los resultados se colocan automáticamente en el tablero que contiene el video.
+- Los workflows auditan las herramientas completadas y abortan si se usó algo
+  distinto de StudyBoard.
+- Arrastrar tarjetas y flechas es más fluido: los nodos están memoizados y React
+  Flow solo renderiza elementos visibles.
+
+### Corregido
+
+- Los informes ya no incluyen la narración intermedia del modelo.
+- Renombrar un video renombra sus informes Markdown y migra su transcripción.
+- Los resultados traducidos conservan idioma e información de origen.
+
 ## v1.1.1 — 2026-11-05
 
 Versión de endurecimiento de seguridad.

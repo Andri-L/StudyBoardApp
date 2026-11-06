@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { Node, NodeProps } from '@xyflow/react';
 import {
   AlertTriangle,
@@ -24,11 +24,12 @@ import {
   thumbUrl,
 } from '../api';
 import WorkflowResultNode from './WorkflowResultNode';
+import { PASTEL_COLORS } from '../colors';
 
 type CardNode = Node<{ card: Card }, 'folder' | 'video'>;
 type NoteNodeType = Node<{ note: Note }, 'note'>;
 
-export function FolderNode({ data, selected }: NodeProps<CardNode>) {
+export const FolderNode = memo(function FolderNode({ data, selected }: NodeProps<CardNode>) {
   const card = data.card;
   const openFolder = useStudyBoard((s) => s.openFolder);
   const removeCard = useStudyBoard((s) => s.removeCard);
@@ -36,7 +37,8 @@ export function FolderNode({ data, selected }: NodeProps<CardNode>) {
 
   return (
     <div
-      className={`node-card folder-node ${selected ? 'selected' : ''}`}
+      className={`node-card folder-node ${selected ? 'selected' : ''} ${card.color ? 'has-custom-color' : ''}`}
+      style={card.color ? { background: card.color } : undefined}
       onDoubleClick={(e) => {
         e.stopPropagation();
         openFolder(card.path);
@@ -86,9 +88,9 @@ export function FolderNode({ data, selected }: NodeProps<CardNode>) {
       </div>
     </div>
   );
-}
+});
 
-export function VideoNode({ data, selected }: NodeProps<CardNode>) {
+export const VideoNode = memo(function VideoNode({ data, selected }: NodeProps<CardNode>) {
   const card = data.card;
   const mediaBase = useStudyBoard((s) => s.state?.mediaBase ?? '');
   const jobs = useStudyBoard((s) => s.jobs);
@@ -132,7 +134,8 @@ export function VideoNode({ data, selected }: NodeProps<CardNode>) {
 
   return (
     <div
-      className={`node-card video-node ${selected ? 'selected' : ''} ${busy ? 'busy' : ''}`}
+      className={`node-card video-node ${selected ? 'selected' : ''} ${busy ? 'busy' : ''} ${card.color ? 'has-custom-color' : ''}`}
+      style={card.color ? { background: card.color } : undefined}
       onDoubleClick={(e) => {
         e.stopPropagation();
         openReview(card.path);
@@ -266,17 +269,21 @@ export function VideoNode({ data, selected }: NodeProps<CardNode>) {
       </div>
     </div>
   );
-}
+});
 
-const noteColors = ['#fff4b8', '#ffd9e1', '#d9f2e6', '#dbeafe'];
+const noteColors = [...PASTEL_COLORS];
 
-export function NoteNode({ data, selected }: NodeProps<NoteNodeType>) {
+export const NoteNode = memo(function NoteNode({ data, selected }: NodeProps<NoteNodeType>) {
   const note = data.note;
   const updateNote = useStudyBoard((s) => s.updateNote);
   const removeNote = useStudyBoard((s) => s.removeNote);
   const [text, setText] = useState(note.text);
   const [color, setColor] = useState(note.color || noteColors[0]);
   const initial = useRef(true);
+
+  useEffect(() => {
+    setColor(note.color || noteColors[0]);
+  }, [note.color]);
 
   useEffect(() => {
     if (initial.current) {
@@ -336,7 +343,7 @@ export function NoteNode({ data, selected }: NodeProps<NoteNodeType>) {
       </div>
     </div>
   );
-}
+});
 
 export const nodeTypes = {
   folder: FolderNode,

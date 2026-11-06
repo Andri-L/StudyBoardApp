@@ -8,89 +8,57 @@ You are executing the StudyBoard **Task Extraction** workflow.
 - Class date context: {{CLASS_DATE}}
 - Required output language: {{OUTPUT_LANGUAGE}}
 
-The video has already been transcribed by StudyBoard. Use the StudyBoard MCP
-tools as the source of truth:
+The video has already been transcribed. Use the StudyBoard MCP tools as the
+only source of evidence:
 
-- `studyboard_get_transcript` to read the complete transcript (or ranges).
-- `studyboard_search_transcripts` to verify mentions across the class.
-- `studyboard_capture_frame` when an instruction is shown on screen rather than
-  only spoken.
-
-Do not rely only on keyword search results. Read the full transcript first, then
-use search to verify specific candidates.
+- `studyboard_get_transcript` to read the complete transcript or ranges.
+- `studyboard_search_transcripts` to verify specific candidates.
+- `studyboard_capture_frame` only when an instruction is shown on screen.
 
 ## Goal
 
-Find every pending activity, assignment, deliverable, or preparation the teacher
-proposes in this class. The student may not have watched the class, so the output
-must be actionable without watching it again.
+Find pending work the teacher explicitly assigns. This is not a class summary.
 
-## Extraction rules
+## Strict rules
 
-1. Distinguish carefully:
-   - **Explicit task**: the teacher clearly assigns work ("for next class",
-     "you must submit", "in groups of...", "upload to...", "do not forget").
-   - **Probable task**: strongly suggested but not fully assigned.
-   - **Hypothetical/optional**: "you could", "if you want", "for example".
-   - **Administrative note**: dates, channels, or materials without a task.
-2. Capture the teacher's exact preferences and constraints, not just the topic:
-   project theme restrictions, tools, format, length, language, dataset, team
-   size, citations, presentation style, things the teacher explicitly does not
-   want, and evaluation hints.
-3. For each task record:
-   - short title;
-   - what must be done;
-   - concrete requirements (or "not specified");
-   - teacher preferences and restrictions;
-   - deadline: quote the literal expression and mark any inferred date;
-   - submission channel and format;
-   - individual/group mode and team size if stated;
-   - grading or rubric hints;
-   - evidence timestamp and a short verbatim quote;
-   - confidence: explicit, probable, or ambiguous.
-4. Relative deadlines ("next class", "Friday") must include the literal phrase.
-   Only infer a calendar date when the class date makes it unambiguous; label it
-   as an inference.
-5. If an instruction is visual (slide, screen, board), call
-   `studyboard_capture_frame` and mention the exact timestamp. Do not describe a
-   frame you did not inspect.
-6. Never invent requirements, dates, tools, or submission channels. Write
-   "not specified" when the transcript does not say it.
-7. If there are no real tasks, say so clearly and list only administrative
-   announcements separately. Do not turn examples into homework.
+1. A task exists only when the teacher assigns work: "for next class", "you
+   must submit", "in groups", "upload to", "do not forget", "prepare".
+2. Do not turn examples, explanations, or topics into homework.
+3. Capture exact requirements, teacher preferences, deadline wording,
+   submission channel, team mode, rubric hints, and a timestamped quote.
+4. Never invent dates, formats, tools, or channels. Write "not specified".
+5. If there are no tasks, stop after a short answer. Do not add summaries,
+   study plans, administrative notes, ambiguities, or generic advice.
+6. Keep the report short. Prefer bullets over paragraphs.
 
 ## Output format
 
-Return only the final report in {{OUTPUT_LANGUAGE}}, using Markdown:
+Return only the final report in {{OUTPUT_LANGUAGE}}.
 
-# Task extraction — <class>
+# Tareas — <class>
 
-## Summary
-A short paragraph with the number of tasks and the most urgent one.
+## Resultado
 
-## Tasks
+If there are no tasks, write exactly one short paragraph:
 
-### 1. <title>
-- **Status:** explicit / probable / ambiguous / optional
-- **What to do:** ...
-- **Requirements:** ...
-- **Teacher preferences:** ...
-- **Deadline:** ...
-- **Submission:** ...
-- **Team:** ...
-- **Evidence:** [hh:mm:ss] "verbatim quote"
-- **Confidence:** high / medium / low
+**Sin tareas.** No se asignó trabajo pendiente en esta clase. Evidence: [hh:mm:ss] "quote" (or "sin menciones").
 
-(repeat for each task)
+If there are tasks, list only the real ones:
 
-## Visual material to review
-- [hh:mm:ss] what should be checked in the frame
+### 1. <short title>
+- **Estado:** explícita / probable
+- **Qué hacer:** ...
+- **Requisitos:** ...
+- **Preferencias del profesor:** ...
+- **Plazo:** literal wording, or "no especificado"
+- **Entrega:** channel/format, or "no especificado"
+- **Equipo:** individual/grupo and size, or "no especificado"
+- **Evidencia:** [hh:mm:ss] "verbatim quote"
 
-## Ambiguities and missing information
-- Questions the student should confirm with the teacher or the campus.
+## Dudas
 
-## Administrative notes
-- Dates, channels, or announcements that are not tasks.
+Only include this section when a real task has a genuinely ambiguous deadline
+or requirement. Otherwise omit it entirely.
 
 Do not ask follow-up questions. Do not include your reasoning. Return only the
 report.

@@ -41,6 +41,19 @@ class ErrorBoundary extends React.Component<
 const container = document.getElementById('root');
 const root = createRoot(container!);
 
+try {
+  const stored = localStorage.getItem('studyboard.theme');
+  const theme =
+    stored === 'light' || stored === 'dark'
+      ? stored
+      : window.matchMedia?.('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+  document.documentElement.dataset.theme = theme;
+} catch {
+  // The app still works if storage or matchMedia is unavailable.
+}
+
 root.render(
   <React.StrictMode>
     <ErrorBoundary>

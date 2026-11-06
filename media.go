@@ -73,14 +73,18 @@ func (m *mediaServer) allowed(path string) bool {
 	if path == "" || !isVideo(path) {
 		return false
 	}
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
 	m.app.mu.RLock()
 	root := m.app.state.Workspace
 	m.app.mu.RUnlock()
-	if !insideRootResolved(root, path) {
-		return false
+	if insideRootResolved(root, path) {
+		return true
 	}
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
+	// Converted playback copies live in the app cache, outside the workspace.
+	return insideRootResolved(m.app.playbackDir(), path)
 }
 
 func setMediaHeaders(w http.ResponseWriter) {

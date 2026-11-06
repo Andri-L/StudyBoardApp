@@ -17,17 +17,26 @@ $ffmpegURL = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
 $vadURL = "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
 
 $models = @{
-    "turbo"    = @{ File = "ggml-large-v3-turbo-q5_0.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin" }
-    "small-q5" = @{ File = "ggml-small-q5_1.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin" }
-    "small"    = @{ File = "ggml-small.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin" }
-    "base-q5"  = @{ File = "ggml-base-q5_1.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin" }
+    "turbo"    = @{ File = "ggml-large-v3-turbo-q5_0.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin"; SHA256 = "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2" }
+    "small-q5" = @{ File = "ggml-small-q5_1.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin"; SHA256 = "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb" }
+    "small"    = @{ File = "ggml-small.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"; SHA256 = "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b" }
+    "base-q5"  = @{ File = "ggml-base-q5_1.bin"; URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin"; SHA256 = "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898" }
 }
+$vadSHA256 = "29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf"
 
 New-Item -ItemType Directory -Force -Path $bin, $whisperDir, $ffmpegDir, $modelDir, $temp | Out-Null
 
 function Download-File([string]$url, [string]$destination) {
     Write-Host "Descargando $url" -ForegroundColor Cyan
     Invoke-WebRequest -Uri $url -OutFile $destination -UseBasicParsing
+}
+
+function Assert-Hash([string]$path, [string]$expected) {
+    if (-not $expected) { return }
+    $actual = (Get-FileHash -Path $path -Algorithm SHA256).Hash
+    if ($actual -ne $expected.ToUpperInvariant()) {
+        throw "Hash incorrecto para $path. Esperado $expected, obtenido $actual."
+    }
 }
 
 try {
@@ -61,6 +70,7 @@ try {
     $vadPath = Join-Path $modelDir "ggml-silero-v5.1.2.bin"
     if ($Force -or -not (Test-Path $vadPath)) {
         Download-File $vadURL $vadPath
+        try { Assert-Hash $vadPath $vadSHA256 } catch { Remove-Item $vadPath -Force -ErrorAction SilentlyContinue; throw }
         Write-Host "VAD instalado en $vadPath" -ForegroundColor Green
     } else {
         Write-Host "VAD ya está instalado." -ForegroundColor DarkGray
@@ -73,6 +83,7 @@ try {
         if ($Force -or -not (Test-Path $modelPath)) {
             $part = $modelPath + ".part"
             Download-File $spec.URL $part
+            try { Assert-Hash $part $spec.SHA256 } catch { Remove-Item $part -Force -ErrorAction SilentlyContinue; throw }
             Move-Item $part $modelPath -Force
             Write-Host "Modelo instalado en $modelPath" -ForegroundColor Green
         } else {

@@ -15,6 +15,7 @@ type Card struct {
 	Path      string  `json:"path"`
 	Label     string  `json:"label"`
 	DateLabel string  `json:"dateLabel,omitempty"`
+	Color     string  `json:"color,omitempty"`
 	X         float64 `json:"x"`
 	Y         float64 `json:"y"`
 	Width     float64 `json:"width"`
@@ -52,6 +53,7 @@ type Arrow struct {
 	Y1        float64 `json:"y1"`
 	X2        float64 `json:"x2"`
 	Y2        float64 `json:"y2"`
+	Type      string  `json:"type,omitempty"`
 	Color     string  `json:"color"`
 	CreatedAt int64   `json:"createdAt"`
 }
@@ -85,6 +87,9 @@ type WorkflowJob struct {
 	VideoPath      string `json:"videoPath"`
 	VideoName      string `json:"videoName"`
 	OutputLanguage string `json:"outputLanguage"`
+	Kind           string `json:"kind,omitempty"`
+	SourceResultID string `json:"sourceResultId,omitempty"`
+	TargetLanguage string `json:"targetLanguage,omitempty"`
 	Status         string `json:"status"`
 	Stage          string `json:"stage"`
 	Error          string `json:"error"`
@@ -96,20 +101,24 @@ type WorkflowJob struct {
 
 // WorkflowResult is a rendered workflow output shown next to its video.
 type WorkflowResult struct {
-	ID           string  `json:"id"`
-	WorkflowID   string  `json:"workflowId"`
-	WorkflowName string  `json:"workflowName"`
-	VideoPath    string  `json:"videoPath"`
-	VideoName    string  `json:"videoName"`
-	ClassName    string  `json:"className"`
-	Content      string  `json:"content"`
-	FilePath     string  `json:"filePath"`
-	SessionID    string  `json:"sessionId"`
-	X            float64 `json:"x"`
-	Y            float64 `json:"y"`
-	Width        float64 `json:"width"`
-	Height       float64 `json:"height"`
-	CreatedAt    int64   `json:"createdAt"`
+	ID             string  `json:"id"`
+	WorkflowID     string  `json:"workflowId"`
+	WorkflowName   string  `json:"workflowName"`
+	VideoPath      string  `json:"videoPath"`
+	VideoName      string  `json:"videoName"`
+	ClassName      string  `json:"className"`
+	Content        string  `json:"content"`
+	FilePath       string  `json:"filePath"`
+	AttachmentPath string  `json:"attachmentPath,omitempty"`
+	Language       string  `json:"language,omitempty"`
+	SourceResultID string  `json:"sourceResultId,omitempty"`
+	Color          string  `json:"color,omitempty"`
+	SessionID      string  `json:"sessionId"`
+	X              float64 `json:"x"`
+	Y              float64 `json:"y"`
+	Width          float64 `json:"width"`
+	Height         float64 `json:"height"`
+	CreatedAt      int64   `json:"createdAt"`
 }
 
 // EngineStatus describes the local transcription toolchain.
