@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.2.3 — 2026-11-06
+
+Smarter square arrow routing.
+
+### Changed
+
+- When a square arrow has both endpoints snapped to parallel card edges, the
+  route now goes outside the cards with a 24 px clearance and forms a clean
+  rectangular path instead of running along the card border.
+- This applies automatically when both endpoints use the same side (top/top,
+  bottom/bottom, left/left or right/right). Other combinations keep the previous
+  midpoint route.
+
 ## v1.2.2 — 2026-11-05
 
 Arrow release flicker fix.

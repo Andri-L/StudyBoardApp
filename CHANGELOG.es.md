@@ -2,6 +2,19 @@
 
 [English](CHANGELOG.md) · [Español](CHANGELOG.es.md)
 
+## v1.2.3 — 2026-11-06
+
+Trazado inteligente de flechas cuadradas.
+
+### Cambiado
+
+- Cuando una flecha cuadrada tiene ambos extremos ajustados a bordes paralelos
+  de tarjetas, la ruta sale por fuera con un margen de 24 px y forma un
+  rectángulo limpio en vez de pegarse al borde de la tarjeta.
+- Se aplica automáticamente cuando ambos extremos usan el mismo lado
+  (arriba/arriba, abajo/abajo, izquierda/izquierda o derecha/derecha). Las demás
+  combinaciones mantienen la ruta por el punto medio.
+
 ## v1.2.2 — 2026-11-05
 
 Corrección del parpadeo al soltar flechas.

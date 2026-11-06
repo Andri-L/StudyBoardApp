@@ -28,7 +28,98 @@ interface DragState {
   snap: { x: number; y: number } | null;
 }
 
-function arrowPath(arrow: Arrow, draftType: 'straight' | 's' = 'straight'): { path: string; endAngle: number } {
+interface EdgeInfo {
+  edge: 'top' | 'bottom' | 'left' | 'right';
+  node: FlowNode;
+  normal: { x: number; y: number };
+  incomingAngle: number;
+}
+
+function findNodeEdge(point: { x: number; y: number }, nodes: FlowNode[]): EdgeInfo | null {
+  const tolerance = 10;
+  let best: { info: EdgeInfo; distance: number } | null = null;
+  for (const node of nodes) {
+    const width = node.width ?? node.measured?.width ?? 0;
+    const height = node.height ?? node.measured?.height ?? 0;
+    if (width <= 0 || height <= 0) continue;
+    const { x, y } = node.position;
+    const candidates: Array<{ info: EdgeInfo; px: number; py: number }> = [
+      { info: { edge: 'top', node, normal: { x: 0, y: -1 }, incomingAngle: Math.PI / 2 }, px: x + width / 2, py: y },
+      { info: { edge: 'bottom', node, normal: { x: 0, y: 1 }, incomingAngle: -Math.PI / 2 }, px: x + width / 2, py: y + height },
+      { info: { edge: 'left', node, normal: { x: -1, y: 0 }, incomingAngle: 0 }, px: x, py: y + height / 2 },
+      { info: { edge: 'right', node, normal: { x: 1, y: 0 }, incomingAngle: Math.PI }, px: x + width, py: y + height / 2 },
+    ];
+    for (const candidate of candidates) {
+      const distance = Math.hypot(point.x - candidate.px, point.y - candidate.py);
+      if (distance <= tolerance && (!best || distance < best.distance)) {
+        best = { info: candidate.info, distance };
+      }
+    }
+  }
+  return best?.info ?? null;
+}
+
+function squareEdgePath(arrow: Arrow, nodes: FlowNode[]): { path: string; endAngle: number } | null {
+  const start = findNodeEdge({ x: arrow.x1, y: arrow.y1 }, nodes);
+  const end = findNodeEdge({ x: arrow.x2, y: arrow.y2 }, nodes);
+  if (!start || !end) return null;
+  const gap = 24;
+  const a = {
+    x: arrow.x1 + start.normal.x * gap,
+    y: arrow.y1 + start.normal.y * gap,
+  };
+  const b = {
+    x: arrow.x2 + end.normal.x * gap,
+    y: arrow.y2 + end.normal.y * gap,
+  };
+  const verticalPair =
+    (start.edge === 'top' && end.edge === 'top') ||
+    (start.edge === 'bottom' && end.edge === 'bottom');
+  if (verticalPair) {
+    const busY = start.edge === 'top'
+      ? Math.min(start.node.position.y, end.node.position.y) - gap
+      : Math.max(
+          start.node.position.y + (start.node.height ?? start.node.measured?.height ?? 0),
+          end.node.position.y + (end.node.height ?? end.node.measured?.height ?? 0),
+        ) + gap;
+    const path = [
+      `M ${arrow.x1} ${arrow.y1}`,
+      `L ${a.x} ${a.y}`,
+      `L ${a.x} ${busY}`,
+      `L ${b.x} ${busY}`,
+      `L ${b.x} ${b.y}`,
+      `L ${arrow.x2} ${arrow.y2}`,
+    ].join(' ');
+    return { path, endAngle: end.incomingAngle };
+  }
+  const horizontalPair =
+    (start.edge === 'left' && end.edge === 'left') ||
+    (start.edge === 'right' && end.edge === 'right');
+  if (horizontalPair) {
+    const busX = start.edge === 'left'
+      ? Math.min(start.node.position.x, end.node.position.x) - gap
+      : Math.max(
+          start.node.position.x + (start.node.width ?? start.node.measured?.width ?? 0),
+          end.node.position.x + (end.node.width ?? end.node.measured?.width ?? 0),
+        ) + gap;
+    const path = [
+      `M ${arrow.x1} ${arrow.y1}`,
+      `L ${a.x} ${a.y}`,
+      `L ${busX} ${a.y}`,
+      `L ${busX} ${b.y}`,
+      `L ${b.x} ${b.y}`,
+      `L ${arrow.x2} ${arrow.y2}`,
+    ].join(' ');
+    return { path, endAngle: end.incomingAngle };
+  }
+  return null;
+}
+
+function arrowPath(
+  arrow: Arrow,
+  nodes: FlowNode[],
+  draftType: 'straight' | 's' | 'square' = 'straight',
+): { path: string; endAngle: number } {
   const type = arrow.type || draftType;
   if (type === 's') {
     const dx = arrow.x2 - arrow.x1;
@@ -54,6 +145,8 @@ function arrowPath(arrow: Arrow, draftType: 'straight' | 's' = 'straight'): { pa
     };
   }
   if (type === 'square') {
+    const edgePath = squareEdgePath(arrow, nodes);
+    if (edgePath) return edgePath;
     const dx = arrow.x2 - arrow.x1;
     const dy = arrow.y2 - arrow.y1;
     if (Math.abs(dx) >= Math.abs(dy)) {
@@ -204,7 +297,7 @@ export default function ArrowLayer({ arrows, nodes, selectedId, onSelect, onComm
           const selected = arrow.id === selectedId;
           const hovered = arrow.id === hover;
           const color = selected ? '#c42b1c' : arrow.color || '#0067c0';
-          const { path, endAngle } = arrowPath(arrow);
+          const { path, endAngle } = arrowPath(arrow, nodes);
           return (
             <g key={arrow.id} className={`board-arrow ${selected ? 'selected' : ''}`}>
               <path
@@ -276,6 +369,7 @@ export default function ArrowLayer({ arrows, nodes, selectedId, onSelect, onComm
                   color: '#0067c0',
                   createdAt: 0,
                 },
+                nodes,
               ).path}
               stroke="#0067c0"
               strokeWidth={2}

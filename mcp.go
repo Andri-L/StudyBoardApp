@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	appVersion       = "1.2.2"
+	appVersion       = "1.2.3"
 	mcpServerVersion = appVersion
 )
 

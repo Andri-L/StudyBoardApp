@@ -41,8 +41,29 @@ function fixture(): MockFixture {
               color: '#0067c0',
               createdAt: now,
             },
+            {
+              id: 'arrow-2',
+              x1: 232,
+              y1: 90,
+              x2: 545,
+              y2: 500,
+              type: 'square',
+              color: '#c42b1c',
+              createdAt: now,
+            },
           ],
-          notes: [],
+          notes: [
+            {
+              id: 'note-1',
+              text: 'Nota de prueba',
+              color: '#fff4b8',
+              x: 430,
+              y: 500,
+              width: 230,
+              height: 170,
+              createdAt: now,
+            },
+          ],
           cards: [
             {
               id: 'card-1',
@@ -339,6 +360,12 @@ test('snaps an arrow endpoint to the center of a card edge', async ({ page }) =>
       return call ? { x: Math.round(call.args[2]), y: Math.round(call.args[3]) } : null;
     }),
   ).toEqual({ x: 384, y: 220 });
+});
+
+test('routes a square arrow around snapped cards', async ({ page }) => {
+  const path = await page.locator('.board-arrow').nth(1).locator('path').nth(1).getAttribute('d');
+  expect(path).toContain('545 66');
+  expect(path).toContain('545 476');
 });
 
 test('queues a report translation from the result card', async ({ page }) => {
