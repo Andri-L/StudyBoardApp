@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ViewportPortal, useReactFlow } from '@xyflow/react';
 import type { Arrow } from '../types';
 
@@ -130,6 +130,7 @@ function previewArrow(base: Arrow, point: { x: number; y: number }, mode: DragSt
 export default function ArrowLayer({ arrows, nodes, selectedId, onSelect, onCommit, draft }: Props) {
   const { screenToFlowPosition } = useReactFlow();
   const [drag, setDrag] = useState<DragState | null>(null);
+  const dragRef = useRef<DragState | null>(null);
   const [hover, setHover] = useState<string | null>(null);
 
   const beginDrag = (event: React.PointerEvent, arrow: Arrow, mode: DragState['mode']) => {
@@ -137,36 +138,55 @@ export default function ArrowLayer({ arrows, nodes, selectedId, onSelect, onComm
     event.preventDefault();
     (event.currentTarget as Element).setPointerCapture(event.pointerId);
     const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    setDrag({ arrow, mode, origin: point, moved: false, preview: { ...arrow }, snap: null });
+    const next = { arrow, mode, origin: point, moved: false, preview: { ...arrow }, snap: null };
+    dragRef.current = next;
+    setDrag(next);
     onSelect(arrow.id);
   };
 
   const updateDrag = (event: React.PointerEvent) => {
-    if (!drag) return;
+    const current = dragRef.current;
+    if (!current) return;
     const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
     const moved =
-      drag.moved ||
-      Math.abs(point.x - drag.origin.x) > 2 ||
-      Math.abs(point.y - drag.origin.y) > 2;
-    let preview = previewArrow(drag.arrow, point, drag.mode, drag.origin);
+      current.moved ||
+      Math.abs(point.x - current.origin.x) > 2 ||
+      Math.abs(point.y - current.origin.y) > 2;
+    let preview = previewArrow(current.arrow, point, current.mode, current.origin);
     let snap: { x: number; y: number } | null = null;
-    if (drag.mode === 'start' || drag.mode === 'end') {
+    if (current.mode === 'start' || current.mode === 'end') {
       const snapped = snapToNodeEdge(point, nodes);
       if (snapped) {
         snap = snapped;
-        preview = drag.mode === 'start'
+        preview = current.mode === 'start'
           ? { ...preview, x1: snapped.x, y1: snapped.y }
           : { ...preview, x2: snapped.x, y2: snapped.y };
       }
     }
-    setDrag({ ...drag, moved, preview, snap });
+    const next = { ...current, moved, preview, snap };
+    dragRef.current = next;
+    setDrag(next);
   };
 
   const finishDrag = (event: React.PointerEvent) => {
-    if (!drag) return;
+    const current = dragRef.current;
+    if (!current) return;
     event.stopPropagation();
-    const final = drag.preview;
-    const moved = drag.moved;
+    const point = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const moved =
+      current.moved ||
+      Math.abs(point.x - current.origin.x) > 2 ||
+      Math.abs(point.y - current.origin.y) > 2;
+    let final = previewArrow(current.arrow, point, current.mode, current.origin);
+    if (current.mode === 'start' || current.mode === 'end') {
+      const snapped = snapToNodeEdge(point, nodes);
+      if (snapped) {
+        final = current.mode === 'start'
+          ? { ...final, x1: snapped.x, y1: snapped.y }
+          : { ...final, x2: snapped.x, y2: snapped.y };
+      }
+    }
+    dragRef.current = null;
     setDrag(null);
     if (moved) {
       onCommit(final.id, final.x1, final.y1, final.x2, final.y2);

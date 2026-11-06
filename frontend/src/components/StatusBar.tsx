@@ -74,7 +74,7 @@ export default function StatusBar() {
             </>
           )}
         </button>
-        <span className="status-version">StudyBoard App 1.2.1</span>
+        <span className="status-version">StudyBoard App 1.2.2</span>
       </div>
     </footer>
   );

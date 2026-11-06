@@ -2,6 +2,16 @@
 
 [English](CHANGELOG.md) · [Español](CHANGELOG.es.md)
 
+## v1.2.2 — 2026-11-05
+
+Corrección del parpadeo al soltar flechas.
+
+### Corregido
+
+- Al soltar una flecha ya no aparece brevemente su geometría anterior. La flecha
+  se actualiza de forma optimista y la posición final usa el último punto real
+  del puntero, incluido el ajuste a bordes.
+
 ## v1.2.1 — 2026-11-05
 
 Correcciones de flechas y selectores de color.

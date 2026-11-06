@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.2 — 2026-11-05
+
+Arrow release flicker fix.
+
+### Fixed
+
+- Releasing an arrow no longer shows a brief “ghost” of its previous geometry.
+  The arrow is updated optimistically and the release uses the final pointer
+  position, including edge snapping.
+
 ## v1.2.1 — 2026-11-05
 
 Arrow and color-picker fixes.

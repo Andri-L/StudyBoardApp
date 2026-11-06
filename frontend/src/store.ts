@@ -285,11 +285,30 @@ export const useStudyBoard = create<StudyBoardStore>((set, get) => ({
   updateArrow: async (arrowId, x1, y1, x2, y2, type, color) => {
     const boardId = activeBoardId(get().state);
     if (!boardId) return;
+    const current = get().state;
+    if (current) {
+      set({
+        state: {
+          ...current,
+          boards: current.boards.map((board) =>
+            board.id === boardId
+              ? {
+                  ...board,
+                  arrows: board.arrows.map((arrow) =>
+                    arrow.id === arrowId ? { ...arrow, x1, y1, x2, y2, type, color } : arrow,
+                  ),
+                }
+              : board,
+          ),
+        },
+      });
+    }
     try {
       const state = await api.updateArrow(boardId, arrowId, x1, y1, x2, y2, type, color);
       set({ state });
     } catch (err) {
       get().showToast(friendlyError(err), 'error');
+      await get().refresh();
     }
   },
 
